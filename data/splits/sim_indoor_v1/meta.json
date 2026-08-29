@@ -1,0 +1,19 @@
+{
+  "dataset": "sim_indoor_v1",
+  "n_beams": 180,
+  "max_range": 10.0,
+  "n_samples": 5315,
+  "label_names": [
+    "corridor",
+    "room",
+    "doorway",
+    "open_area",
+    "cluttered_area"
+  ],
+  "seed": 7,
+  "split_counts": {
+    "train": 2415,
+    "test_id": 1207,
+    "test_ood": 1693
+  }
+}

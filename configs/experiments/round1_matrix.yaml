@@ -1,0 +1,8 @@
+name: round1_matrix
+methods: [quantized, pca, binary_hash, pure_hdc]
+budgets_bytes: [128, 512, 2048]
+bers: [0.0, 0.01, 0.05, 0.10]
+hdc_dimensions: [1024, 4096, 8192]
+seeds: [0, 1, 2]
+split: test_id
+metrics: [accuracy, macro_f1, actual_bytes, encode_ms_median, classify_ms_median]

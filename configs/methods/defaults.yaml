@@ -1,0 +1,13 @@
+quantized:
+  n_bits: 8
+pca:
+  coeff_dtype: float32
+binary_hash: {}
+pure_hdc:
+  n_levels: 32
+  level_mode: locality
+  similarity: cosine
+  region_size: 1
+autoencoder: {}
+hybrid_hdc:
+  mode: task

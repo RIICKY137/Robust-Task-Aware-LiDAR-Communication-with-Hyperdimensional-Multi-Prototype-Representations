@@ -1,0 +1,12 @@
+dataset: sim_indoor_v1
+n_beams: 180
+max_range: 10.0
+seed: 7
+n_traj_per_env: 3
+labels:
+  - corridor
+  - room
+  - doorway
+  - open_area
+  - cluttered_area
+split_rule: trajectory_and_environment

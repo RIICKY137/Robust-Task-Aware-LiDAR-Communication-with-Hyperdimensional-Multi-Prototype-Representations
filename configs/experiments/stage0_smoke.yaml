@@ -1,0 +1,6 @@
+name: stage0_smoke
+methods: [quantized, pca, binary_hash, pure_hdc]
+budget_bytes: 512
+ber: 0.0
+seed: 0
+hdc_dimension: 4096

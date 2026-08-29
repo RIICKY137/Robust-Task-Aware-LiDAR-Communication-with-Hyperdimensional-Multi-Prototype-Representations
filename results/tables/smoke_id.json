@@ -1,0 +1,47 @@
+[
+  {
+    "method": "quantized",
+    "budget_bytes": 512,
+    "actual_bytes": 188.0,
+    "accuracy": 0.7340513670256835,
+    "macro_f1": 0.6264620619061504,
+    "model_bytes": 3620,
+    "shared_memory_bytes": 0
+  },
+  {
+    "method": "pca",
+    "budget_bytes": 512,
+    "actual_bytes": 512.0,
+    "accuracy": 0.7547638773819387,
+    "macro_f1": 0.6430222945087841,
+    "model_bytes": 2540,
+    "shared_memory_bytes": 94320
+  },
+  {
+    "method": "binary_hash",
+    "budget_bytes": 512,
+    "actual_bytes": 512.0,
+    "accuracy": 0.9154929577464789,
+    "macro_f1": 0.8662026074723801,
+    "model_bytes": 81940,
+    "shared_memory_bytes": 2949120
+  },
+  {
+    "method": "pure_hdc",
+    "budget_bytes": 512,
+    "actual_bytes": 512.0,
+    "accuracy": 0.7299088649544325,
+    "macro_f1": 0.6638516578731524,
+    "model_bytes": 81940,
+    "shared_memory_bytes": 868352
+  },
+  {
+    "method": "autoencoder",
+    "budget_bytes": 512,
+    "actual_bytes": 188.0,
+    "accuracy": 0.899751449875725,
+    "macro_f1": 0.8488710993993973,
+    "model_bytes": 3620,
+    "shared_memory_bytes": 1044000
+  }
+]

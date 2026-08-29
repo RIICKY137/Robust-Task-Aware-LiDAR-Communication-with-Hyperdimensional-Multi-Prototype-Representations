@@ -1,0 +1,34 @@
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Data and experiment outputs (keep reports/figures/raw jsonl tracked)
+data/raw/
+data/processed/
+results/models/
+*.pkl
+*.pt
+
+# Keep directory placeholders
+!data/**/README.md
+!results/**/.gitkeep
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+
+agent-tools/
+.venv/
+
+# Secrets
+.env
+.env.*
