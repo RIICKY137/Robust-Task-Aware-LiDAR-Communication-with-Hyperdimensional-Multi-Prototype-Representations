@@ -56,8 +56,8 @@ python scripts/run_sensor_shift.py
 # Stage 4 — 10 / 50 / 100-shot OOD HDC vs 8-bit logistic vs hybrid
 python scripts/run_shift_adaptation.py
 
-# Stage 5 — hybrid neural-HDC vs hashing / pure HDC
-python scripts/run_hybrid_compare.py
+# LiDAR hybrid HDC — full-scan frontend ± record bundle vs hashing
+python scripts/run_hybrid_lidar.py
 
 # Stage 8 — uncoded BPSK/QPSK + AWGN/Rayleigh vs matched BER
 python scripts/run_radio_sweep.py

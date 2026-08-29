@@ -29,6 +29,7 @@ def build_method(name: str, budget_bytes: int, seed: int = 0, **kwargs):
             level_mode=kwargs.get("level_mode", "locality"),
             similarity=kwargs.get("similarity", "cosine"),
             region_size=kwargs.get("region_size", 1),
+            head=kwargs.get("head", "prototype"),
         )
     if name in {"hybrid_hdc", "hybrid"}:
         return HybridHDCMethod(
@@ -36,5 +37,9 @@ def build_method(name: str, budget_bytes: int, seed: int = 0, **kwargs):
             seed=seed,
             dimension=kwargs.get("dimension", 4096),
             mode=kwargs.get("mode", "task"),
+            frontend=kwargs.get("frontend", "sector"),
+            head=kwargs.get("head", "prototype"),
+            mix=kwargs.get("mix", "none"),
+            hidden=kwargs.get("hidden", 64),
         )
     raise ValueError(f"Unknown method {name}")

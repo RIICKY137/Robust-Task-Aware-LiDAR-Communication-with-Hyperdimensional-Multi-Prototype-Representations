@@ -94,6 +94,7 @@ def encode_scans(
     level_hv: np.ndarray,
     max_range: float,
     n_levels: int,
+    binarize_out: bool = True,
 ) -> np.ndarray:
     """Vectorized record-based encoding: H = sign(sum_i P_i ⊗ L_{Q(r_i)}).
 
@@ -105,6 +106,8 @@ def encode_scans(
     acc = np.zeros((n_samples, dimension), dtype=np.int32)
     for beam in range(n_beams):
         acc += position_hv[beam] * level_hv[q[:, beam]]
+    if not binarize_out:
+        return acc
     return binarize(acc)
 
 

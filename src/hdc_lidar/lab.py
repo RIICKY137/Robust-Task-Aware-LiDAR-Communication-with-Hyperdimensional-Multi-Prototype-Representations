@@ -36,12 +36,29 @@ def _dataset():
 
 
 @st.cache_resource(show_spinner="Fitting encoder and classifier…")
-def _fit_method(name: str, budget: int, seed: int, dimension: int):
+def _fit_method(
+    name: str,
+    budget: int,
+    seed: int,
+    dimension: int,
+    hdc_head: str = "prototype",
+    hybrid_frontend: str = "sector",
+    hybrid_head: str = "prototype",
+    hybrid_mix: str = "none",
+    hybrid_mode: str = "task",
+):
     batch, splits, _ = _dataset()
     train = batch.subset(splits["train"])
-    kwargs = {}
+    kwargs: dict = {}
     if name in {"pure_hdc", "binary_hash", "hybrid_hdc"}:
         kwargs["dimension"] = dimension
+    if name == "pure_hdc":
+        kwargs["head"] = hdc_head
+    if name == "hybrid_hdc":
+        kwargs["mode"] = hybrid_mode
+        kwargs["frontend"] = hybrid_frontend
+        kwargs["head"] = hybrid_head
+        kwargs["mix"] = hybrid_mix
     method = build_method(name, budget, seed=seed, **kwargs)
     method.fit(train.ranges, train.labels, train.max_range)
     return method
@@ -183,9 +200,28 @@ def _live(batch, splits) -> None:
     if radio_mod != "none":
         st.caption("Radio replaces the BER coin-flip. Burst and packet loss still apply after demodulation.")
     dim = st.select_slider("HDC / hash dimension cap", options=[1024, 4096, 8192], value=4096)
+    hdc_head = "prototype"
+    hybrid_frontend, hybrid_head, hybrid_mix, hybrid_mode = "sector", "prototype", "none", "task"
+    if method_name == "pure_hdc":
+        hdc_head = st.selectbox("HDC head", ["prototype", "linear"], index=0)
+    if method_name == "hybrid_hdc":
+        hybrid_mode = st.selectbox("Hybrid train", ["task", "frozen"], index=0)
+        hybrid_frontend = st.selectbox("LiDAR frontend", ["scan", "sector"], index=0)
+        hybrid_head = st.selectbox("Hybrid head", ["prototype", "linear"], index=0)
+        hybrid_mix = st.selectbox("Mix record HDC", ["record", "none"], index=0)
     split = st.selectbox("Evaluate on", ["test_id", "test_ood", "train"], index=0)
     seed = 7
-    method = _fit_method(method_name, int(budget), seed, int(dim))
+    method = _fit_method(
+        method_name,
+        int(budget),
+        seed,
+        int(dim),
+        hdc_head,
+        hybrid_frontend,
+        hybrid_head,
+        hybrid_mix,
+        hybrid_mode,
+    )
 
     idx = splits[split]
     k = st.slider("Scan index in split", 0, int(len(idx) - 1), 0)

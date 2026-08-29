@@ -36,3 +36,38 @@ def test_quantized_bit_count_respects_budget():
     assert rec.total_bits % 8 == 0
     pred = m.predict_from_payloads([rec.payload], 180, 10.0)
     assert pred.shape == (1,)
+
+
+def test_pure_hdc_linear_head_predicts():
+    rng = np.random.default_rng(2)
+    ranges = rng.uniform(0.5, 8.0, size=(60, 24)).astype(np.float32)
+    labels = np.repeat(np.arange(5), 12)
+    m = PureHDCMethod(budget_bytes=64, seed=1, dimension=256, n_levels=8, head="linear")
+    m.fit(ranges, labels, 10.0)
+    pred = m.predict_from_payloads([m.encode_one(ranges[0]).payload], 24, 10.0)
+    assert pred.shape == (1,)
+    assert 0 <= int(pred[0]) < 5
+
+
+def test_lidar_hybrid_scan_and_record_bundle():
+    from hdc_lidar.methods.hybrid_hdc import HybridHDCMethod
+
+    rng = np.random.default_rng(3)
+    ranges = rng.uniform(0.4, 9.0, size=(50, 36)).astype(np.float32)
+    labels = np.repeat(np.arange(5), 10)
+    neural = HybridHDCMethod(
+        budget_bytes=64, seed=0, dimension=256, mode="task", frontend="scan", head="prototype", mix="none"
+    )
+    lidar = HybridHDCMethod(
+        budget_bytes=64, seed=0, dimension=256, mode="task", frontend="scan", head="linear", mix="record"
+    )
+    neural.fit(ranges, labels, 10.0)
+    lidar.fit(ranges, labels, 10.0)
+    a = neural.encode_one(ranges[0]).payload
+    b = lidar.encode_one(ranges[0]).payload
+    assert len(a) == 32
+    assert len(b) == 32
+    assert a != b
+    pred = lidar.predict_from_payloads([b], 36, 10.0)
+    assert pred.shape == (1,)
+

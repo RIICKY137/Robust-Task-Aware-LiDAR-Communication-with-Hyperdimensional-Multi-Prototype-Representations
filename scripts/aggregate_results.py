@@ -39,6 +39,9 @@ def method_label(df: pd.DataFrame) -> pd.Series:
                 name = f"pure_hdc_D{int(r['dimension'])}"
             except (TypeError, ValueError):
                 pass
+            head = r.get("hdc_head")
+            if pd.notna(head) and str(head) == "linear":
+                name = f"{name}+lin"
         if r.get("interleave") is True:
             name = f"{name}+intl"
         kind = r.get("channel_kind")
@@ -64,6 +67,7 @@ def main() -> None:
     plr_intl = load_jsonl(raw / "packet_interleave_sweep.jsonl")
     sensor = load_jsonl(raw / "sensor_shift.jsonl")
     hybrid = load_jsonl(raw / "hybrid_sweep.jsonl")
+    hybrid_lidar = load_jsonl(raw / "hybrid_lidar_sweep.jsonl")
     radio = load_jsonl(raw / "radio_sweep.jsonl")
     adapt_raw = load_jsonl(raw / "adaptation.jsonl")
 
@@ -174,6 +178,22 @@ def main() -> None:
         hybrid.to_csv(tables / "hybrid_sweep.csv", index=False)
         _write_stage5(hybrid, reports / "stage5_hybrid.md")
 
+    if not hybrid_lidar.empty:
+        hybrid_lidar = hybrid_lidar.copy()
+        hybrid_lidar["method_label"] = method_label(hybrid_lidar)
+        plot_metric_curves(
+            hybrid_lidar,
+            x="ber",
+            y="accuracy",
+            hue="method_label",
+            title="LiDAR hybrid HDC vs hashing (512 bytes)",
+            path=fig / "accuracy_hybrid_lidar_ber.png",
+            xlabel="BER",
+            ylabel="Accuracy",
+        )
+        hybrid_lidar.to_csv(tables / "hybrid_lidar_sweep.csv", index=False)
+        _write_stage5_lidar(hybrid_lidar, reports / "stage5_hybrid_lidar.md")
+
     if not radio.empty:
         radio = radio.copy()
         radio["method_label"] = method_label(radio)
@@ -212,6 +232,7 @@ def main() -> None:
         reports / "final_report.md",
         radio=radio,
         plr_intl=plr_intl,
+        hybrid_lidar=hybrid_lidar,
     )
     print("reports updated")
 
@@ -383,6 +404,33 @@ def _write_stage5(hybrid: pd.DataFrame, path: Path) -> None:
     )
 
 
+def _write_stage5_lidar(hybrid: pd.DataFrame, path: Path) -> None:
+    g = (
+        hybrid.groupby(["method_label", "ber"])[["accuracy", "macro_f1"]]
+        .mean()
+        .reset_index()
+        .round(4)
+    )
+    path.write_text(
+        "\n".join(
+            [
+                "# LiDAR hybrid HDC — full scan, record bundle, linear vs prototype",
+                "",
+                "Stage 5 used 16-sector summaries, so the neural-HDC hybrid never saw the same "
+                "geometry as binary hashing. This follow-up uses 2D LiDAR features (normalized "
+                "range + circular derivative), optionally bundled with record-based `P_i ⊗ L_Q(r_i)`, "
+                "and compares HDC prototypes against the same logistic head hashing uses.",
+                "",
+                _md_table(g),
+                "",
+                "Figure: `results/figures/accuracy_hybrid_lidar_ber.png`.",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+
 def _plot_adaptation(adapt: pd.DataFrame, path: Path) -> None:
     import matplotlib.pyplot as plt
 
@@ -504,6 +552,7 @@ def _write_final(
     path: Path,
     radio: pd.DataFrame | None = None,
     plr_intl: pd.DataFrame | None = None,
+    hybrid_lidar: pd.DataFrame | None = None,
 ) -> None:
     lines = [
         "# Working region of HDC for task-aware LiDAR communication",
@@ -589,6 +638,21 @@ def _write_final(
             .round(4)
         )
         lines += [_md_table(gh)]
+    if hybrid_lidar is not None and not hybrid_lidar.empty:
+        lines += [
+            "## LiDAR hybrid HDC",
+            "",
+            "See `reports/stage5_hybrid_lidar.md`. Full-scan frontend ± record bundle, prototype vs linear head.",
+            "",
+        ]
+        gl = (
+            hybrid_lidar.assign(method_label=method_label(hybrid_lidar))
+            .groupby(["method_label", "ber"])["accuracy"]
+            .mean()
+            .reset_index()
+            .round(4)
+        )
+        lines += [_md_table(gl)]
     if radio is not None and not radio.empty:
         lines += [
             "## Realistic radio (Stage 8)",
@@ -614,7 +678,7 @@ def _write_final(
         "| Uncoded radio | Pure HDC stays flat under BPSK/QPSK AWGN and block Rayleigh; PCM/PCA still cliff. Matched i.i.d. BER tracks AWGN. |",
         "| Sensor dropout / scale | See Stage 3; not billed as communication noise |",
         "| Few-shot OOD | HDC updates are milliseconds vs seconds for a linear refit |",
-        "| Hybrid encoder | Task MLP + HDC is BER-flat but still below hashing |",
+        "| Hybrid encoder | Sector MLP+HDC ~0.76; see LiDAR hybrid for full-scan + record bundle |",
         "",
         "Configs in `configs/`. Frozen splits in `data/splits/sim_indoor_v1/`.",
         "",

@@ -1,0 +1,7 @@
+name: stage5_hybrid_lidar
+budget_bytes: 512
+seeds: [0, 1, 2]
+bers: [0.0, 0.01, 0.05, 0.10]
+notes: >
+  Full-scan LiDAR frontend (range + circular derivative), optional bundle with
+  record-based P⊗L HDC, prototype vs linear head. Isolates the hashing gap.

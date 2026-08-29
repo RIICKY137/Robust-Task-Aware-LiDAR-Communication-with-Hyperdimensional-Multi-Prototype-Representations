@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import numpy as np
 
+from sklearn.linear_model import LogisticRegression
+
 from hdc_lidar import LABELS
 from hdc_lidar.hdc_ops import (
     cosine_similarity,
@@ -30,6 +32,7 @@ class PureHDCMethod(BaseMethod):
         level_mode: str = "locality",
         similarity: str = "cosine",
         region_size: int = 1,
+        head: str = "prototype",
     ):
         super().__init__(budget_bytes, seed)
         dim_cap = max(8, budget_bytes * 8)
@@ -39,6 +42,8 @@ class PureHDCMethod(BaseMethod):
         self.level_mode = level_mode
         self.similarity = similarity
         self.region_size = max(1, int(region_size))
+        self.head = head
+        self.clf: LogisticRegression | None = None
         self.position_hv: np.ndarray | None = None
         self.level_hv: np.ndarray | None = None
         self.prototypes: np.ndarray | None = None  # analog (C, D)
@@ -65,7 +70,7 @@ class PureHDCMethod(BaseMethod):
         grouped = ranges.reshape(n, -1, self.region_size)
         return grouped.mean(axis=2)
 
-    def encode_matrix(self, ranges: np.ndarray) -> np.ndarray:
+    def encode_matrix(self, ranges: np.ndarray, binarize: bool = True) -> np.ndarray:
         assert self.position_hv is not None and self.level_hv is not None
         pooled = self._maybe_pool(np.atleast_2d(ranges.astype(np.float32)))
         n_pos = self.position_hv.shape[0]
@@ -73,7 +78,9 @@ class PureHDCMethod(BaseMethod):
             pooled = pooled[:, :n_pos] if pooled.shape[1] > n_pos else np.pad(
                 pooled, ((0, 0), (0, n_pos - pooled.shape[1])), mode="edge"
             )
-        return encode_scans(pooled, self.position_hv, self.level_hv, self.max_range, self.n_levels)
+        return encode_scans(
+            pooled, self.position_hv, self.level_hv, self.max_range, self.n_levels, binarize_out=binarize
+        )
 
     def fit(self, ranges: np.ndarray, labels: np.ndarray, max_range: float) -> None:
         self.max_range = float(max_range)
@@ -87,6 +94,11 @@ class PureHDCMethod(BaseMethod):
                 continue
             self.prototypes[k] = hv[mask].astype(np.int32).sum(axis=0)
             self.counts[k] = int(mask.sum())
+        if self.head == "linear":
+            self.clf = LogisticRegression(
+                max_iter=600, class_weight="balanced", random_state=self.seed
+            )
+            self.clf.fit(hv.astype(np.float32), labels)
         self.fitted = True
 
     def encode_one(self, scan: np.ndarray) -> TransmitRecord:
@@ -115,6 +127,9 @@ class PureHDCMethod(BaseMethod):
         return out
 
     def _predict_hv(self, hv: np.ndarray) -> np.ndarray:
+        if self.head == "linear":
+            assert self.clf is not None
+            return self.clf.predict(np.atleast_2d(hv).astype(np.float32)).astype(np.int32)
         assert self.prototypes is not None
         proto = self.prototypes.astype(np.float32)
         if self.similarity == "hamming":
@@ -141,8 +156,12 @@ class PureHDCMethod(BaseMethod):
             self.prototypes[subtract_pred] -= hv.astype(np.int32)
 
     def model_bytes(self) -> int:
-        assert self.prototypes is not None
-        return int(self.prototypes.nbytes + (0 if self.counts is None else self.counts.nbytes))
+        n = 0
+        if self.prototypes is not None:
+            n += int(self.prototypes.nbytes + (0 if self.counts is None else self.counts.nbytes))
+        if self.clf is not None:
+            n += self.nbytes_of(self.clf.coef_, self.clf.intercept_)
+        return n
 
     def shared_memory_bytes(self) -> int:
         parts = []
