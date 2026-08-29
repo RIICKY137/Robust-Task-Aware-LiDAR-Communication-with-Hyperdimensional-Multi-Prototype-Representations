@@ -1,0 +1,10 @@
+name: multicentroid_hdc
+budget_bytes: 512
+seeds: [0, 1, 2]
+bers: [0.0, 0.01, 0.05, 0.10]
+splits: [test_id, test_ood]
+n_centroids: [1, 4, 8, 16]
+controls: [binary_hash, pure_hdc_linear]
+notes: >
+  Same P⊗L payload. k=1 is the original class-wide sum. k>1 runs k-means per
+  class on training hypervectors, then nearest-centroid cosine.

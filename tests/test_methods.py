@@ -49,6 +49,36 @@ def test_pure_hdc_linear_head_predicts():
     assert 0 <= int(pred[0]) < 5
 
 
+def test_multicentroid_uses_several_prototypes_per_class():
+    rng = np.random.default_rng(4)
+    n_beams = 32
+    n_per = 24
+    ranges = np.zeros((5 * n_per, n_beams), dtype=np.float32)
+    labels = np.repeat(np.arange(5), n_per)
+    for c in range(5):
+        idx = np.where(labels == c)[0]
+        a, b = idx[: n_per // 2], idx[n_per // 2 :]
+        ranges[a] = 1.2 + 0.3 * c
+        ranges[a, : n_beams // 2] = 7.0
+        ranges[b] = 1.2 + 0.3 * c
+        ranges[b, n_beams // 2 :] = 7.0
+    ranges += rng.normal(0.0, 0.04, size=ranges.shape).astype(np.float32)
+    k1 = PureHDCMethod(budget_bytes=64, seed=0, dimension=256, n_levels=8, n_centroids=1)
+    k2 = PureHDCMethod(budget_bytes=64, seed=0, dimension=256, n_levels=8, n_centroids=2)
+    k1.fit(ranges, labels, 8.0)
+    k2.fit(ranges, labels, 8.0)
+    acc1 = float(np.mean(k1.predict_from_hv(k1.encode_matrix(ranges)) == labels))
+    acc2 = float(np.mean(k2.predict_from_hv(k2.encode_matrix(ranges)) == labels))
+    assert k2.centroids is not None
+    assert k2.centroid_counts is not None
+    assert int((k2.centroid_counts[0] > 0).sum()) == 2
+    assert acc2 >= acc1 - 1e-6
+    rec = k2.encode_one(ranges[0])
+    assert rec.n_payload_bits == 256
+    pred = k2.predict_from_payloads([rec.payload], n_beams, 8.0)
+    assert pred.shape == (1,)
+
+
 def test_lidar_hybrid_scan_and_record_bundle():
     from hdc_lidar.methods.hybrid_hdc import HybridHDCMethod
 

@@ -46,6 +46,7 @@ def _fit_method(
     hybrid_head: str = "prototype",
     hybrid_mix: str = "none",
     hybrid_mode: str = "task",
+    n_centroids: int = 1,
 ):
     batch, splits, _ = _dataset()
     train = batch.subset(splits["train"])
@@ -54,6 +55,7 @@ def _fit_method(
         kwargs["dimension"] = dimension
     if name == "pure_hdc":
         kwargs["head"] = hdc_head
+        kwargs["n_centroids"] = n_centroids
     if name == "hybrid_hdc":
         kwargs["mode"] = hybrid_mode
         kwargs["frontend"] = hybrid_frontend
@@ -201,9 +203,12 @@ def _live(batch, splits) -> None:
         st.caption("Radio replaces the BER coin-flip. Burst and packet loss still apply after demodulation.")
     dim = st.select_slider("HDC / hash dimension cap", options=[1024, 4096, 8192], value=4096)
     hdc_head = "prototype"
+    n_centroids = 1
     hybrid_frontend, hybrid_head, hybrid_mix, hybrid_mode = "sector", "prototype", "none", "task"
     if method_name == "pure_hdc":
         hdc_head = st.selectbox("HDC head", ["prototype", "linear"], index=0)
+        if hdc_head == "prototype":
+            n_centroids = int(st.select_slider("Centroids per class", options=[1, 4, 8, 16], value=1))
     if method_name == "hybrid_hdc":
         hybrid_mode = st.selectbox("Hybrid train", ["task", "frozen"], index=0)
         hybrid_frontend = st.selectbox("LiDAR frontend", ["scan", "sector"], index=0)
@@ -221,6 +226,7 @@ def _live(batch, splits) -> None:
         hybrid_head,
         hybrid_mix,
         hybrid_mode,
+        n_centroids,
     )
 
     idx = splits[split]

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
+from sklearn.cluster import KMeans
 from sklearn.linear_model import LogisticRegression
 
 from hdc_lidar import LABELS
@@ -33,6 +34,7 @@ class PureHDCMethod(BaseMethod):
         similarity: str = "cosine",
         region_size: int = 1,
         head: str = "prototype",
+        n_centroids: int = 1,
     ):
         super().__init__(budget_bytes, seed)
         dim_cap = max(8, budget_bytes * 8)
@@ -43,11 +45,14 @@ class PureHDCMethod(BaseMethod):
         self.similarity = similarity
         self.region_size = max(1, int(region_size))
         self.head = head
+        self.n_centroids = max(1, int(n_centroids))
         self.clf: LogisticRegression | None = None
         self.position_hv: np.ndarray | None = None
         self.level_hv: np.ndarray | None = None
-        self.prototypes: np.ndarray | None = None  # analog (C, D)
+        self.prototypes: np.ndarray | None = None  # analog (C, D), class-wide sum
         self.counts: np.ndarray | None = None
+        self.centroids: np.ndarray | None = None  # (C, K, D) when K > 1
+        self.centroid_counts: np.ndarray | None = None
         self.max_range = 10.0
         self.n_classes = len(LABELS)
 
@@ -94,12 +99,51 @@ class PureHDCMethod(BaseMethod):
                 continue
             self.prototypes[k] = hv[mask].astype(np.int32).sum(axis=0)
             self.counts[k] = int(mask.sum())
+        if self.head == "prototype" and self.n_centroids > 1:
+            self._fit_centroids(hv, labels)
         if self.head == "linear":
             self.clf = LogisticRegression(
                 max_iter=600, class_weight="balanced", random_state=self.seed
             )
             self.clf.fit(hv.astype(np.float32), labels)
         self.fitted = True
+
+    def _fit_centroids(self, hv: np.ndarray, labels: np.ndarray) -> None:
+        k = self.n_centroids
+        self.centroids = np.zeros((self.n_classes, k, self.dimension), dtype=np.int32)
+        self.centroid_counts = np.zeros((self.n_classes, k), dtype=np.int32)
+        for c in range(self.n_classes):
+            x = hv[labels == c]
+            if x.shape[0] == 0:
+                continue
+            k_use = min(k, x.shape[0])
+            if k_use == 1:
+                self.centroids[c, 0] = x.astype(np.int32).sum(axis=0)
+                self.centroid_counts[c, 0] = int(x.shape[0])
+                continue
+            km = KMeans(
+                n_clusters=k_use,
+                random_state=self.seed + 17 + c,
+                n_init=4,
+                max_iter=40,
+            )
+            assign = km.fit_predict(x.astype(np.float32))
+            for j in range(k_use):
+                members = x[assign == j]
+                if members.shape[0] == 0:
+                    continue
+                self.centroids[c, j] = members.astype(np.int32).sum(axis=0)
+                self.centroid_counts[c, j] = int(members.shape[0])
+
+    def _nearest_centroid(self, hv_row: np.ndarray, class_id: int) -> int:
+        assert self.centroids is not None and self.centroid_counts is not None
+        valid = self.centroid_counts[class_id] > 0
+        if not np.any(valid):
+            return 0
+        sim = np.asarray(cosine_similarity(hv_row, self.centroids[class_id]), dtype=np.float32)
+        sim = np.atleast_1d(sim)
+        sim[~valid] = -1e9
+        return int(np.argmax(sim))
 
     def encode_one(self, scan: np.ndarray) -> TransmitRecord:
         hv = self.encode_matrix(scan.reshape(1, -1))[0]
@@ -130,15 +174,37 @@ class PureHDCMethod(BaseMethod):
         if self.head == "linear":
             assert self.clf is not None
             return self.clf.predict(np.atleast_2d(hv).astype(np.float32)).astype(np.int32)
+        x = np.atleast_2d(hv)
+        if self.centroids is not None and self.n_centroids > 1:
+            return self._predict_centroids(x)
         assert self.prototypes is not None
         proto = self.prototypes.astype(np.float32)
         if self.similarity == "hamming":
             signed = np.sign(proto)
             signed[signed == 0] = 1
-            dist = hamming_distance(hv.astype(np.int8), signed.astype(np.int8))
+            dist = hamming_distance(x.astype(np.int8), signed.astype(np.int8))
             return np.argmin(dist, axis=-1)
-        sim = cosine_similarity(hv, proto)
+        sim = cosine_similarity(x, proto)
         return np.argmax(sim, axis=-1)
+
+    def _predict_centroids(self, hv: np.ndarray) -> np.ndarray:
+        assert self.centroids is not None and self.centroid_counts is not None
+        n, k = hv.shape[0], self.n_centroids
+        flat = self.centroids.reshape(self.n_classes * k, self.dimension)
+        valid = self.centroid_counts.reshape(self.n_classes * k) > 0
+        if self.similarity == "hamming":
+            signed = np.sign(flat).astype(np.int8)
+            signed[signed == 0] = 1
+            dist = np.asarray(hamming_distance(hv.astype(np.int8), signed), dtype=np.float32)
+            dist = np.atleast_2d(dist)
+            dist[:, ~valid] = 1e9
+            scores = dist.reshape(n, self.n_classes, k)
+            return np.argmin(scores.min(axis=2), axis=1)
+        sim = np.asarray(cosine_similarity(hv, flat), dtype=np.float32)
+        sim = np.atleast_2d(sim)
+        sim[:, ~valid] = -1e9
+        scores = sim.reshape(n, self.n_classes, k)
+        return np.argmax(scores.max(axis=2), axis=1)
 
     def predict_from_payloads(self, payloads: list[bytes], n_beams: int, max_range: float) -> np.ndarray:
         hv = np.stack([unpack_hv(p, self.dimension) for p in payloads])
@@ -149,15 +215,27 @@ class PureHDCMethod(BaseMethod):
 
     def adapt(self, hv: np.ndarray, label: int, subtract_pred: int | None = None) -> None:
         """Prototype add / optional subtract. Used for few-shot updates."""
+        row = np.asarray(hv).reshape(-1)
+        if self.centroids is not None and self.n_centroids > 1:
+            j = self._nearest_centroid(row, int(label))
+            self.centroids[int(label), j] += row.astype(np.int32)
+            self.centroid_counts[int(label), j] += 1
+            if subtract_pred is not None and subtract_pred != label:
+                j2 = self._nearest_centroid(row, int(subtract_pred))
+                self.centroids[int(subtract_pred), j2] -= row.astype(np.int32)
         assert self.prototypes is not None and self.counts is not None
-        self.prototypes[label] += hv.astype(np.int32)
+        self.prototypes[label] += row.astype(np.int32)
         self.counts[label] += 1
         if subtract_pred is not None and subtract_pred != label:
-            self.prototypes[subtract_pred] -= hv.astype(np.int32)
+            self.prototypes[subtract_pred] -= row.astype(np.int32)
 
     def model_bytes(self) -> int:
         n = 0
-        if self.prototypes is not None:
+        if self.centroids is not None:
+            n += int(self.centroids.nbytes)
+            if self.centroid_counts is not None:
+                n += int(self.centroid_counts.nbytes)
+        elif self.prototypes is not None:
             n += int(self.prototypes.nbytes + (0 if self.counts is None else self.counts.nbytes))
         if self.clf is not None:
             n += self.nbytes_of(self.clf.coef_, self.clf.intercept_)

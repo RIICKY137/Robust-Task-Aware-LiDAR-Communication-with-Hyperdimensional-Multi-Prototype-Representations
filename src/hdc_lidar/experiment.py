@@ -107,6 +107,7 @@ def score_encoded(
         "n_bursts": channel.n_bursts,
         "hybrid_mode": getattr(method, "mode", None),
         "hdc_head": getattr(method, "head", None),
+        "n_centroids": getattr(method, "n_centroids", None),
         "frontend": getattr(method, "frontend", None),
         "mix": getattr(method, "mix", None),
         "modulation": channel.modulation,

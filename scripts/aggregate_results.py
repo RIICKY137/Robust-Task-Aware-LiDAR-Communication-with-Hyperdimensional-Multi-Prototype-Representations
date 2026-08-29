@@ -42,6 +42,14 @@ def method_label(df: pd.DataFrame) -> pd.Series:
             head = r.get("hdc_head")
             if pd.notna(head) and str(head) == "linear":
                 name = f"{name}+lin"
+            n_c = r.get("n_centroids")
+            if pd.notna(n_c):
+                try:
+                    k = int(n_c)
+                except (TypeError, ValueError):
+                    k = 1
+                if k > 1 and str(head) != "linear":
+                    name = f"{name}/k{k}"
         if r.get("interleave") is True:
             name = f"{name}+intl"
         kind = r.get("channel_kind")
@@ -68,6 +76,7 @@ def main() -> None:
     sensor = load_jsonl(raw / "sensor_shift.jsonl")
     hybrid = load_jsonl(raw / "hybrid_sweep.jsonl")
     hybrid_lidar = load_jsonl(raw / "hybrid_lidar_sweep.jsonl")
+    multicentroid = load_jsonl(raw / "multicentroid_sweep.jsonl")
     radio = load_jsonl(raw / "radio_sweep.jsonl")
     adapt_raw = load_jsonl(raw / "adaptation.jsonl")
 
@@ -194,6 +203,27 @@ def main() -> None:
         hybrid_lidar.to_csv(tables / "hybrid_lidar_sweep.csv", index=False)
         _write_stage5_lidar(hybrid_lidar, reports / "stage5_hybrid_lidar.md")
 
+    if not multicentroid.empty:
+        multicentroid = multicentroid.copy()
+        multicentroid["method_label"] = method_label(multicentroid)
+        id_ = (
+            multicentroid[multicentroid["split"] == "test_id"]
+            if "split" in multicentroid.columns
+            else multicentroid
+        )
+        plot_metric_curves(
+            id_,
+            x="ber",
+            y="accuracy",
+            hue="method_label",
+            title="Multi-centroid HDC vs linear head (512 bytes, test_id)",
+            path=fig / "accuracy_multicentroid_ber.png",
+            xlabel="BER",
+            ylabel="Accuracy",
+        )
+        multicentroid.to_csv(tables / "multicentroid_sweep.csv", index=False)
+        _write_multicentroid(multicentroid, reports / "multicentroid.md")
+
     if not radio.empty:
         radio = radio.copy()
         radio["method_label"] = method_label(radio)
@@ -233,6 +263,7 @@ def main() -> None:
         radio=radio,
         plr_intl=plr_intl,
         hybrid_lidar=hybrid_lidar,
+        multicentroid=multicentroid,
     )
     print("reports updated")
 
@@ -437,6 +468,29 @@ def _write_stage5_lidar(hybrid: pd.DataFrame, path: Path) -> None:
     )
 
 
+def _write_multicentroid(df: pd.DataFrame, path: Path) -> None:
+    keys = ["split", "method_label", "ber"] if "split" in df.columns else ["method_label", "ber"]
+    g = df.groupby(keys)[["accuracy", "macro_f1"]].mean().reset_index().round(4)
+    path.write_text(
+        "\n".join(
+            [
+                "# Multi-centroid HDC",
+                "",
+                "The transmitted payload is still one bipolar hypervector per scan (`P_i ⊗ L_Q(r_i)` bundled). "
+                "What changes is the receiver: k-means on the training hypervectors of each class, "
+                "then nearest-centroid cosine. `k=1` is the original class-wide sum. "
+                "The linear head is the same logistic classifier used with hashing, trained on the same codes.",
+                "",
+                _md_table(g),
+                "",
+                "Figure: `results/figures/accuracy_multicentroid_ber.png` (in-distribution).",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+
 def _plot_adaptation(adapt: pd.DataFrame, path: Path) -> None:
     import matplotlib.pyplot as plt
 
@@ -559,6 +613,7 @@ def _write_final(
     radio: pd.DataFrame | None = None,
     plr_intl: pd.DataFrame | None = None,
     hybrid_lidar: pd.DataFrame | None = None,
+    multicentroid: pd.DataFrame | None = None,
 ) -> None:
     lines = [
         "# Working region of HDC for task-aware LiDAR communication",
@@ -659,6 +714,21 @@ def _write_final(
             .round(4)
         )
         lines += [_md_table(gl)]
+    if multicentroid is not None and not multicentroid.empty:
+        lines += [
+            "## Multi-centroid HDC",
+            "",
+            "See `reports/multicentroid.md`. Same `P⊗L` payload; k prototypes per class vs a linear head.",
+            "",
+        ]
+        gm = (
+            multicentroid.assign(method_label=method_label(multicentroid))
+            .groupby(["method_label", "ber"])["accuracy"]
+            .mean()
+            .reset_index()
+            .round(4)
+        )
+        lines += [_md_table(gm)]
     if radio is not None and not radio.empty:
         lines += [
             "## Realistic radio (Stage 8)",
@@ -685,6 +755,7 @@ def _write_final(
         "| Sensor dropout / scale | See Stage 3; not billed as communication noise |",
         "| Few-shot OOD | HDC updates are milliseconds vs seconds for a linear refit |",
         "| Hybrid encoder | Prototype head ~0.73–0.80; linear head on HDC codes can match/beat hashing |",
+        "| Multi-centroid | See `reports/multicentroid.md` — does k>1 close the prototype gap without logistic? |",
         "",
         "Configs in `configs/`. Frozen splits in `data/splits/sim_indoor_v1/`.",
         "",

@@ -9,6 +9,7 @@ Generated files:
 - `stage4_adaptation.md` — 10/50/100-shot HDC vs linear head vs hybrid
 - `stage5_hybrid.md` — sector-stat neural-HDC (Stage 5)
 - `stage5_hybrid_lidar.md` — full-scan LiDAR hybrid ± record bundle
+- `multicentroid.md` — k prototypes per class vs linear head
 - `stage8_radio.md` — uncoded BPSK/QPSK vs matched BER
 - `final_report.md` — working-region summary for RQ1–RQ3
 

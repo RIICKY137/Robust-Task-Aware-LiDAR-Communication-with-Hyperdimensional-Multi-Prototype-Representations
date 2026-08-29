@@ -30,6 +30,7 @@ def build_method(name: str, budget_bytes: int, seed: int = 0, **kwargs):
             similarity=kwargs.get("similarity", "cosine"),
             region_size=kwargs.get("region_size", 1),
             head=kwargs.get("head", "prototype"),
+            n_centroids=kwargs.get("n_centroids", 1),
         )
     if name in {"hybrid_hdc", "hybrid"}:
         return HybridHDCMethod(
