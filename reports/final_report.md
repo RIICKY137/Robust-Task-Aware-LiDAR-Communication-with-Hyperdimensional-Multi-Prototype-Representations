@@ -4,22 +4,22 @@ This report answers the three questions in the project brief. It does **not** cl
 
 ## What was measured
 
-- Task: 5-way place classification (corridor / room / doorway / open / cluttered) on `sim_indoor_v1`.
-- Receiver classifies from the transmitted representation; the scan is never reconstructed for the metric.
-- First-round methods: 8-bit quantization, PCA, binary hashing, pure HDC. Autoencoder and hybrid HDC are implemented for later stages.
-- Splits: trajectory hold-out (`test_id`) and a different floorplan (`test_ood`).
+- Task: 5-way place classification on `sim_indoor_v1`.
+- Receiver classifies from the transmitted representation; the scan is never reconstructed.
+- Methods: 8-bit quantization, PCA, binary hashing, pure HDC, autoencoder, hybrid neural-HDC.
+- Stage 2 uses 5 seeds for burst and packet loss; BER used 3 seeds in the first-round matrix.
 
 ## RQ1 — bandwidth
 
-On a 180-beam 2D scan, full 8-bit PCM is only **188 bytes** including header. Raising the budget above that does not add beams, so quantization saturates. HDC at D=8K is **1024 bytes**, already larger than the raw 8-bit scan — this is the brief's Risk 2.
+See `reports/stage1_bandwidth.md`. On this 180-beam scan, 8-bit PCM saturates at ~188 bytes. Pure HDC is not a compression win (Outcome A fails). Binary hashing leads on a clean channel.
 
-Clean-channel ID accuracy (means over 3 seeds): binary hashing is strongest (~0.86 at 128 B, ~0.92 at 512 B). Pure HDC sits with 8-bit PCM and PCA around **0.73–0.75** and barely moves with D. So HDC is **not** a bandwidth winner here (Outcome A fails). The hashing vs HDC gap is Risk 3: much of the clean-channel gain is **binarization + a trained linear head**, not position-level binding.
+## RQ2 — communication noise
 
-See `reports/stage1_bandwidth.md` and `results/figures/accuracy_bandwidth.png`.
+Random BER: `reports/stage2_noise.md` and `results/figures/accuracy_ber.png`.
+Burst + interleaving: `results/figures/accuracy_burst.png`.
+Packet loss (32 B packets, zero-fill): `results/figures/accuracy_packet_loss.png`.
 
-## RQ2 — noise (clearest HDC advantage)
-
-At a 512-byte cap, flipping bits in the **payload** (not the labels):
+BER means:
 
 | method | 0.0 | 0.01 | 0.05 | 0.1 |
 | --- | --- | --- | --- | --- |
@@ -28,13 +28,79 @@ At a 512-byte cap, flipping bits in the **payload** (not the labels):
 | pure_hdc | 0.7313 | 0.7302 | 0.7294 | 0.7285 |
 | quantized | 0.7473 | 0.5695 | 0.3891 | 0.2949 |
 
-Pure HDC is almost flat from BER 0 to 0.10 (**~0.731 → ~0.729**). 8-bit PCM drops **0.75 → 0.29**. PCA float32 bits collapse **0.75 → 0.17**. Binary hashing degrades slowly (**0.92 → 0.84**) but still faster than HDC.
+Burst means:
 
-This is **Outcome B**: at matched budget, HDC shows repeatable graceful degradation versus at least two reasonable baselines, across seeds. Binary hashing shares the binary codebook robustness; HDC's extra structure did not win clean accuracy, but Hamming/cosine to analog prototypes is the most noise-stable classifier in this matrix.
+| method | burst_length | interleave | accuracy |
+| --- | --- | --- | --- |
+| binary_hash | 0 | False | 0.9223 |
+| binary_hash | 32 | False | 0.9143 |
+| binary_hash | 32 | True | 0.9155 |
+| binary_hash | 128 | False | 0.8968 |
+| binary_hash | 128 | True | 0.8994 |
+| binary_hash | 512 | False | 0.8089 |
+| binary_hash | 512 | True | 0.8136 |
+| binary_hash | 1024 | False | 0.6759 |
+| binary_hash | 1024 | True | 0.6747 |
+| pca | 0 | False | 0.7548 |
+| pca | 32 | False | 0.3210 |
+| pca | 32 | True | 0.3649 |
+| pca | 128 | False | 0.2394 |
+| pca | 128 | True | 0.2066 |
+| pca | 512 | False | 0.1920 |
+| pca | 512 | True | 0.1672 |
+| pca | 1024 | False | 0.1879 |
+| pca | 1024 | True | 0.1541 |
+| pure_hdc | 0 | False | 0.7304 |
+| pure_hdc | 32 | False | 0.7301 |
+| pure_hdc | 32 | True | 0.7311 |
+| pure_hdc | 128 | False | 0.7299 |
+| pure_hdc | 128 | True | 0.7301 |
+| pure_hdc | 512 | False | 0.7279 |
+| pure_hdc | 512 | True | 0.7291 |
+| pure_hdc | 1024 | False | 0.7261 |
+| pure_hdc | 1024 | True | 0.7241 |
+| quantized | 0 | False | 0.7473 |
+| quantized | 32 | False | 0.6073 |
+| quantized | 32 | True | 0.4853 |
+| quantized | 128 | False | 0.5024 |
+| quantized | 128 | True | 0.2969 |
+| quantized | 512 | False | 0.2441 |
+| quantized | 512 | True | 0.1723 |
+| quantized | 1024 | False | 0.2023 |
+| quantized | 1024 | True | 0.1466 |
 
-Figure: `results/figures/accuracy_ber.png`.
+Packet-loss means:
 
-## RQ3 — few-shot adaptation
+| method | packet_loss_rate | accuracy |
+| --- | --- | --- |
+| binary_hash | 0.0000 | 0.9223 |
+| binary_hash | 0.0100 | 0.9201 |
+| binary_hash | 0.0500 | 0.9012 |
+| binary_hash | 0.1000 | 0.8840 |
+| binary_hash | 0.2000 | 0.8330 |
+| binary_hash | 0.4000 | 0.7359 |
+| pca | 0.0000 | 0.7548 |
+| pca | 0.0100 | 0.7488 |
+| pca | 0.0500 | 0.7195 |
+| pca | 0.1000 | 0.6882 |
+| pca | 0.2000 | 0.6285 |
+| pca | 0.4000 | 0.5128 |
+| pure_hdc | 0.0000 | 0.7304 |
+| pure_hdc | 0.0100 | 0.7299 |
+| pure_hdc | 0.0500 | 0.7312 |
+| pure_hdc | 0.1000 | 0.7289 |
+| pure_hdc | 0.2000 | 0.7271 |
+| pure_hdc | 0.4000 | 0.7251 |
+| quantized | 0.0000 | 0.7473 |
+| quantized | 0.0100 | 0.7417 |
+| quantized | 0.0500 | 0.7082 |
+| quantized | 0.1000 | 0.6620 |
+| quantized | 0.2000 | 0.5857 |
+| quantized | 0.4000 | 0.4224 |
+
+## RQ3 — shift and adaptation
+
+Sensor corruptions (pre-encoder) and OOD floorplan: `reports/stage3_shift.md`.
 
 | shots_per_class | hdc_new_acc | hdc_old_acc | hdc_forgetting | hdc_adapt_ms | quant_new_acc | quant_old_acc | quant_forgetting | quant_adapt_ms |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -45,19 +111,43 @@ Figure: `results/figures/accuracy_ber.png`.
 | 20.0000 | 0.7383 | 0.7225 | 0.0075 | 33.7809 | 0.7649 | 0.7299 | 0.0174 | 11337.6466 |
 
 
-HDC prototype add/subtract on OOD shots runs in **milliseconds** vs **~12 s** to refit the 8-bit logistic head on train+shots. OOD accuracy gains are modest for both; the linear head still ends slightly higher. Forgetting stays < 1 pp for HDC and ~1–2 pp for the refit. This is a **cost** win (Outcome C on update time), not an accuracy win.
+## Hybrid HDC (Stage 5)
 
-## Mapped operating region (Outcome D)
+See `reports/stage5_hybrid.md`. This tests whether a task-trained encoder recovers the geometry that record-based pure HDC drops, while keeping a binary HDC payload.
 
-| Regime | What happens |
+| method_label | ber | accuracy |
+| --- | --- | --- |
+| autoencoder | 0.0000 | 0.9006 |
+| autoencoder | 0.0100 | 0.4935 |
+| autoencoder | 0.0500 | 0.3170 |
+| autoencoder | 0.1000 | 0.2717 |
+| binary_hash | 0.0000 | 0.9216 |
+| binary_hash | 0.0100 | 0.9149 |
+| binary_hash | 0.0500 | 0.8837 |
+| binary_hash | 0.1000 | 0.8398 |
+| hybrid_hdc:frozen | 0.0000 | 0.7266 |
+| hybrid_hdc:frozen | 0.0100 | 0.7263 |
+| hybrid_hdc:frozen | 0.0500 | 0.7258 |
+| hybrid_hdc:frozen | 0.1000 | 0.7225 |
+| hybrid_hdc:task | 0.0000 | 0.7608 |
+| hybrid_hdc:task | 0.0100 | 0.7622 |
+| hybrid_hdc:task | 0.0500 | 0.7611 |
+| hybrid_hdc:task | 0.1000 | 0.7597 |
+| pure_hdc_D4096 | 0.0000 | 0.7313 |
+| pure_hdc_D4096 | 0.0100 | 0.7302 |
+| pure_hdc_D4096 | 0.0500 | 0.7294 |
+| pure_hdc_D4096 | 0.1000 | 0.7285 |
+
+## Operating region
+
+| Regime | Current reading |
 |---|---|
-| Clean channel, 2D 180-beam scan | Binary hashing (or AE) beats pure HDC. HDC ≈ 8-bit PCM. |
-| Budget ≫ 188 bytes | Extra bytes do not help 8-bit PCM; HDC larger than the scan is not a compression win. |
-| BER 1–10% on the payload | **HDC holds accuracy**; PCM and PCA cliff. Hashing holds most but not all. |
-| Few OOD labels | HDC updates are 100–1000× faster; accuracy recovery is small on this shift. |
-| Next levers | Region pooling, temporal n-grams, hybrid encoder (Stage 5), real labeled LiDAR. |
+| Clean 2D scan | Hashing / AE beat pure HDC |
+| Random BER | Pure HDC almost flat; PCM/PCA cliff |
+| Burst / packet loss | See Stage 2 tables — binary codes degrade slower than float PCA |
+| Sensor dropout / scale | See Stage 3; not billed as communication noise |
+| Few-shot OOD | HDC updates are milliseconds vs seconds |
+| Hybrid encoder | Stage 5: does task MLP + HDC close the hashing gap? |
 
-## Reproducibility
-
-Configs in `configs/`. Frozen splits in `data/splits/sim_indoor_v1/`. Every JSONL row stores method, budget, BER, seed, and git commit.
+Configs in `configs/`. Frozen splits in `data/splits/sim_indoor_v1/`.
 
