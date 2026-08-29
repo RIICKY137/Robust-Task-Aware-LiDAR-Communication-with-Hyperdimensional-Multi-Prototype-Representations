@@ -173,6 +173,45 @@ See `reports/stage5_hybrid.md`. This tests whether a task-trained encoder recove
 | pure_hdc_D4096 | 0.0500 | 0.7294 |
 | pure_hdc_D4096 | 0.1000 | 0.7285 |
 
+## LiDAR hybrid HDC
+
+See `reports/stage5_hybrid_lidar.md`. Full-scan frontend ± record bundle, prototype vs linear head.
+
+| method_label | ber | accuracy |
+| --- | --- | --- |
+| binary_hash | 0.0000 | 0.9216 |
+| binary_hash | 0.0100 | 0.9149 |
+| binary_hash | 0.0500 | 0.8837 |
+| binary_hash | 0.1000 | 0.8398 |
+| hybrid_hdc:task/scan/linear/none | 0.0000 | 0.9307 |
+| hybrid_hdc:task/scan/linear/none | 0.0100 | 0.9315 |
+| hybrid_hdc:task/scan/linear/none | 0.0500 | 0.9276 |
+| hybrid_hdc:task/scan/linear/none | 0.1000 | 0.9241 |
+| hybrid_hdc:task/scan/linear/record | 0.0000 | 0.9489 |
+| hybrid_hdc:task/scan/linear/record | 0.0100 | 0.9475 |
+| hybrid_hdc:task/scan/linear/record | 0.0500 | 0.9428 |
+| hybrid_hdc:task/scan/linear/record | 0.1000 | 0.9450 |
+| hybrid_hdc:task/scan/prototype/none | 0.0000 | 0.7415 |
+| hybrid_hdc:task/scan/prototype/none | 0.0100 | 0.7415 |
+| hybrid_hdc:task/scan/prototype/none | 0.0500 | 0.7429 |
+| hybrid_hdc:task/scan/prototype/none | 0.1000 | 0.7421 |
+| hybrid_hdc:task/scan/prototype/record | 0.0000 | 0.7440 |
+| hybrid_hdc:task/scan/prototype/record | 0.0100 | 0.7451 |
+| hybrid_hdc:task/scan/prototype/record | 0.0500 | 0.7437 |
+| hybrid_hdc:task/scan/prototype/record | 0.1000 | 0.7443 |
+| hybrid_hdc:task/sector/prototype/none | 0.0000 | 0.7827 |
+| hybrid_hdc:task/sector/prototype/none | 0.0100 | 0.7810 |
+| hybrid_hdc:task/sector/prototype/none | 0.0500 | 0.7813 |
+| hybrid_hdc:task/sector/prototype/none | 0.1000 | 0.7791 |
+| pure_hdc_D4096 | 0.0000 | 0.7313 |
+| pure_hdc_D4096 | 0.0100 | 0.7302 |
+| pure_hdc_D4096 | 0.0500 | 0.7294 |
+| pure_hdc_D4096 | 0.1000 | 0.7285 |
+| pure_hdc_D4096+lin | 0.0000 | 0.9738 |
+| pure_hdc_D4096+lin | 0.0100 | 0.9732 |
+| pure_hdc_D4096+lin | 0.0500 | 0.9680 |
+| pure_hdc_D4096+lin | 0.1000 | 0.9564 |
+
 ## Realistic radio (Stage 8)
 
 See `reports/stage8_radio.md`. Uncoded BPSK/QPSK hard decisions vs matched i.i.d. BER at the same Eb/N0.
@@ -286,7 +325,7 @@ See `reports/stage8_radio.md`. Uncoded BPSK/QPSK hard decisions vs matched i.i.d
 | Uncoded radio | Pure HDC stays flat under BPSK/QPSK AWGN and block Rayleigh; PCM/PCA still cliff. Matched i.i.d. BER tracks AWGN. |
 | Sensor dropout / scale | See Stage 3; not billed as communication noise |
 | Few-shot OOD | HDC updates are milliseconds vs seconds for a linear refit |
-| Hybrid encoder | Task MLP + HDC is BER-flat but still below hashing |
+| Hybrid encoder | Sector MLP+HDC ~0.76; see LiDAR hybrid for full-scan + record bundle |
 
 Configs in `configs/`. Frozen splits in `data/splits/sim_indoor_v1/`.
 

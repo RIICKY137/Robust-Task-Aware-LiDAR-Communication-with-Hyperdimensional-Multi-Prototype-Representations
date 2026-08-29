@@ -425,6 +425,12 @@ def _write_stage5_lidar(hybrid: pd.DataFrame, path: Path) -> None:
                 "",
                 "Figure: `results/figures/accuracy_hybrid_lidar_ber.png`.",
                 "",
+                "Reading: if the linear head on record-based HDC matches or beats hashing, "
+                "the hashing gap was the prototype classifier, not missing geometry in `P⊗L`. "
+                "If prototypes stay near 0.73 while the linear head jumps, Outcome B (BER-flat "
+                "binary codes) can coexist with a strong task head — the operating region is "
+                "then 'HDC payload + trained head', not 'HDC prototypes everywhere'.",
+                "",
             ]
         ),
         encoding="utf-8",
@@ -678,7 +684,7 @@ def _write_final(
         "| Uncoded radio | Pure HDC stays flat under BPSK/QPSK AWGN and block Rayleigh; PCM/PCA still cliff. Matched i.i.d. BER tracks AWGN. |",
         "| Sensor dropout / scale | See Stage 3; not billed as communication noise |",
         "| Few-shot OOD | HDC updates are milliseconds vs seconds for a linear refit |",
-        "| Hybrid encoder | Sector MLP+HDC ~0.76; see LiDAR hybrid for full-scan + record bundle |",
+        "| Hybrid encoder | Prototype head ~0.73–0.80; linear head on HDC codes can match/beat hashing |",
         "",
         "Configs in `configs/`. Frozen splits in `data/splits/sim_indoor_v1/`.",
         "",
