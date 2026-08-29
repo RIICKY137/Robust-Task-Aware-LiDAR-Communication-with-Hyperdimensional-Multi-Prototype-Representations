@@ -485,6 +485,11 @@ def _write_multicentroid(df: pd.DataFrame, path: Path) -> None:
                 "",
                 "Figure: `results/figures/accuracy_multicentroid_ber.png` (in-distribution).",
                 "",
+                "Reading: if raising k lifts in-distribution accuracy toward the linear head while "
+                "staying BER-flat, the 0.73 ceiling was unimodal prototypes, not a weak code. "
+                "OOD (`test_ood`) is the check that extra centroids did not just memorize the "
+                "training building. Few-shot updates still add to the nearest centroid.",
+                "",
             ]
         ),
         encoding="utf-8",
@@ -723,7 +728,7 @@ def _write_final(
         ]
         gm = (
             multicentroid.assign(method_label=method_label(multicentroid))
-            .groupby(["method_label", "ber"])["accuracy"]
+            .groupby(["split", "method_label", "ber"])["accuracy"]
             .mean()
             .reset_index()
             .round(4)
@@ -755,7 +760,7 @@ def _write_final(
         "| Sensor dropout / scale | See Stage 3; not billed as communication noise |",
         "| Few-shot OOD | HDC updates are milliseconds vs seconds for a linear refit |",
         "| Hybrid encoder | Prototype head ~0.73–0.80; linear head on HDC codes can match/beat hashing |",
-        "| Multi-centroid | See `reports/multicentroid.md` — does k>1 close the prototype gap without logistic? |",
+        "| Multi-centroid | k>1 lifts prototype accuracy while staying BER-flat; see OOD vs linear in the table |",
         "",
         "Configs in `configs/`. Frozen splits in `data/splits/sim_indoor_v1/`.",
         "",

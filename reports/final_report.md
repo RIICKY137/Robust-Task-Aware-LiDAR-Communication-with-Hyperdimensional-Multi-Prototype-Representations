@@ -212,6 +212,37 @@ See `reports/stage5_hybrid_lidar.md`. Full-scan frontend ± record bundle, proto
 | pure_hdc_D4096+lin | 0.0500 | 0.9680 |
 | pure_hdc_D4096+lin | 0.1000 | 0.9564 |
 
+## Multi-centroid HDC
+
+See `reports/multicentroid.md`. Same `P⊗L` payload; k prototypes per class vs a linear head.
+
+| method_label | ber | accuracy |
+| --- | --- | --- |
+| binary_hash | 0.0000 | 0.7722 |
+| binary_hash | 0.0100 | 0.7651 |
+| binary_hash | 0.0500 | 0.7450 |
+| binary_hash | 0.1000 | 0.7096 |
+| pure_hdc_D4096 | 0.0000 | 0.7213 |
+| pure_hdc_D4096 | 0.0100 | 0.7218 |
+| pure_hdc_D4096 | 0.0500 | 0.7199 |
+| pure_hdc_D4096 | 0.1000 | 0.7174 |
+| pure_hdc_D4096+lin | 0.0000 | 0.8953 |
+| pure_hdc_D4096+lin | 0.0100 | 0.8943 |
+| pure_hdc_D4096+lin | 0.0500 | 0.8878 |
+| pure_hdc_D4096+lin | 0.1000 | 0.8770 |
+| pure_hdc_D4096/k16 | 0.0000 | 0.9049 |
+| pure_hdc_D4096/k16 | 0.0100 | 0.9056 |
+| pure_hdc_D4096/k16 | 0.0500 | 0.9043 |
+| pure_hdc_D4096/k16 | 0.1000 | 0.9020 |
+| pure_hdc_D4096/k4 | 0.0000 | 0.8218 |
+| pure_hdc_D4096/k4 | 0.0100 | 0.8207 |
+| pure_hdc_D4096/k4 | 0.0500 | 0.8230 |
+| pure_hdc_D4096/k4 | 0.1000 | 0.8201 |
+| pure_hdc_D4096/k8 | 0.0000 | 0.8669 |
+| pure_hdc_D4096/k8 | 0.0100 | 0.8666 |
+| pure_hdc_D4096/k8 | 0.0500 | 0.8685 |
+| pure_hdc_D4096/k8 | 0.1000 | 0.8661 |
+
 ## Realistic radio (Stage 8)
 
 See `reports/stage8_radio.md`. Uncoded BPSK/QPSK hard decisions vs matched i.i.d. BER at the same Eb/N0.
@@ -326,6 +357,7 @@ See `reports/stage8_radio.md`. Uncoded BPSK/QPSK hard decisions vs matched i.i.d
 | Sensor dropout / scale | See Stage 3; not billed as communication noise |
 | Few-shot OOD | HDC updates are milliseconds vs seconds for a linear refit |
 | Hybrid encoder | Prototype head ~0.73–0.80; linear head on HDC codes can match/beat hashing |
+| Multi-centroid | See `reports/multicentroid.md` — does k>1 close the prototype gap without logistic? |
 
 Configs in `configs/`. Frozen splits in `data/splits/sim_indoor_v1/`.
 
