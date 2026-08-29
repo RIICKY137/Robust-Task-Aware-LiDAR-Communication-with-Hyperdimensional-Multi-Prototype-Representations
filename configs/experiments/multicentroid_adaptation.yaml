@@ -1,0 +1,8 @@
+name: multicentroid_adaptation
+budget_bytes: 512
+seeds: [0, 1, 2]
+shots_per_class: [10, 50, 100]
+n_centroids: [1, 8, 16]
+linear_head: true
+split_old: test_id
+split_new: test_ood

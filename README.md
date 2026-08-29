@@ -56,6 +56,9 @@ python scripts/run_sensor_shift.py
 # Stage 4 — 10 / 50 / 100-shot OOD HDC vs 8-bit logistic vs hybrid
 python scripts/run_shift_adaptation.py
 
+# Few-shot OOD: multi-centroid k=1/8/16 vs linear head
+python scripts/run_multicentroid_adaptation.py
+
 # Multi-centroid HDC vs single prototype vs linear head
 python scripts/run_multicentroid.py
 

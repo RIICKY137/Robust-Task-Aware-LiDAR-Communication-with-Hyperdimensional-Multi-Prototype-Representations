@@ -79,6 +79,7 @@ def main() -> None:
     multicentroid = load_jsonl(raw / "multicentroid_sweep.jsonl")
     radio = load_jsonl(raw / "radio_sweep.jsonl")
     adapt_raw = load_jsonl(raw / "adaptation.jsonl")
+    mc_adapt = load_jsonl(raw / "multicentroid_adaptation.jsonl")
 
     if not bw.empty:
         bw = bw.copy()
@@ -251,6 +252,10 @@ def main() -> None:
         _write_stage4(adapt, reports / "stage4_adaptation.md")
     else:
         adapt = pd.DataFrame()
+    if not mc_adapt.empty:
+        mc_adapt.to_csv(tables / "multicentroid_adaptation.csv", index=False)
+        _write_mc_adapt(mc_adapt, reports / "stage4_multicentroid_adapt.md")
+        _plot_mc_adapt(mc_adapt, fig / "accuracy_multicentroid_adaptation.png")
     _write_final(
         bw,
         noise,
@@ -264,6 +269,7 @@ def main() -> None:
         plr_intl=plr_intl,
         hybrid_lidar=hybrid_lidar,
         multicentroid=multicentroid,
+        mc_adapt=mc_adapt,
     )
     print("reports updated")
 
@@ -531,6 +537,69 @@ def _plot_adaptation(adapt: pd.DataFrame, path: Path) -> None:
     plt.close(fig)
 
 
+def _plot_mc_adapt(adapt: pd.DataFrame, path: Path) -> None:
+    import matplotlib.pyplot as plt
+
+    fig, ax = plt.subplots(figsize=(7.2, 4.4))
+    fig.patch.set_facecolor("#020617")
+    ax.set_facecolor("#0b1220")
+    for method, sub in adapt.groupby("method"):
+        g = sub.groupby("shots_per_class")["new_acc"].agg(["mean", "std"]).reset_index()
+        ax.plot(g["shots_per_class"], g["mean"], marker="o", label=str(method))
+        ax.fill_between(
+            g["shots_per_class"],
+            g["mean"] - g["std"].fillna(0),
+            g["mean"] + g["std"].fillna(0),
+            alpha=0.15,
+        )
+    ax.set_title("OOD accuracy after few-shot centroid / head update", color="#e2e8f0")
+    ax.set_xlabel("Shots per class", color="#94a3b8")
+    ax.set_ylabel("OOD accuracy", color="#94a3b8")
+    ax.tick_params(colors="#94a3b8")
+    ax.legend(facecolor="#0f172a", edgecolor="#1e293b", labelcolor="#e2e8f0")
+    for spine in ax.spines.values():
+        spine.set_color("#1e293b")
+    fig.tight_layout()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(path, dpi=150, facecolor=fig.get_facecolor())
+    plt.close(fig)
+
+
+def _write_mc_adapt(adapt: pd.DataFrame, path: Path) -> None:
+    cols = [
+        c
+        for c in [
+            "before_new_acc",
+            "new_acc",
+            "delta_new",
+            "before_old_acc",
+            "old_acc",
+            "forgetting",
+            "adapt_ms",
+        ]
+        if c in adapt.columns
+    ]
+    g = adapt.groupby(["method", "shots_per_class"])[cols].agg(["mean", "std"]).round(4).reset_index()
+    path.write_text(
+        "\n".join(
+            [
+                "# Few-shot OOD adaptation — multi-centroid vs linear head",
+                "",
+                "Target is `test_ood`. Old-task accuracy is `test_id`. "
+                "`hdc_k1` / `hdc_k8` / `hdc_k16` add (and subtract the current prediction from) "
+                "the nearest class centroid. `hdc_linear` refits logistic regression on train "
+                "hypervectors plus the labeled shots. Times are wall-clock for the update only.",
+                "",
+                _md_table(g),
+                "",
+                "Figure: `results/figures/accuracy_multicentroid_adaptation.png`.",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+
 def _write_stage4(adapt: pd.DataFrame, path: Path) -> None:
     keys = ["shots_per_class"]
     cols = [
@@ -619,6 +688,7 @@ def _write_final(
     plr_intl: pd.DataFrame | None = None,
     hybrid_lidar: pd.DataFrame | None = None,
     multicentroid: pd.DataFrame | None = None,
+    mc_adapt: pd.DataFrame | None = None,
 ) -> None:
     lines = [
         "# Working region of HDC for task-aware LiDAR communication",
@@ -734,6 +804,20 @@ def _write_final(
             .round(4)
         )
         lines += [_md_table(gm)]
+    if mc_adapt is not None and not mc_adapt.empty:
+        lines += [
+            "## Few-shot multi-centroid adaptation",
+            "",
+            "See `reports/stage4_multicentroid_adapt.md`. OOD shots update the nearest centroid (or refit the linear head).",
+            "",
+        ]
+        ga = (
+            mc_adapt.groupby(["method", "shots_per_class"])[["new_acc", "old_acc", "forgetting", "adapt_ms"]]
+            .mean()
+            .reset_index()
+            .round(4)
+        )
+        lines += [_md_table(ga)]
     if radio is not None and not radio.empty:
         lines += [
             "## Realistic radio (Stage 8)",

@@ -77,6 +77,9 @@ def test_multicentroid_uses_several_prototypes_per_class():
     assert rec.n_payload_bits == 256
     pred = k2.predict_from_payloads([rec.payload], n_beams, 8.0)
     assert pred.shape == (1,)
+    before_counts = k2.centroid_counts.copy()
+    k2.adapt(k2.encode_matrix(ranges[0:1])[0], int(labels[0]), subtract_pred=None)
+    assert int(k2.centroid_counts.sum()) == int(before_counts.sum()) + 1
 
 
 def test_lidar_hybrid_scan_and_record_bundle():
