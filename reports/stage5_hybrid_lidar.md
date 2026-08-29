@@ -39,3 +39,5 @@ Stage 5 used 16-sector summaries, so the neural-HDC hybrid never saw the same ge
 
 
 Figure: `results/figures/accuracy_hybrid_lidar_ber.png`.
+
+Reading: if the linear head on record-based HDC matches or beats hashing, the hashing gap was the prototype classifier, not missing geometry in `P⊗L`. If prototypes stay near 0.73 while the linear head jumps, Outcome B (BER-flat binary codes) can coexist with a strong task head — the operating region is then 'HDC payload + trained head', not 'HDC prototypes everywhere'.

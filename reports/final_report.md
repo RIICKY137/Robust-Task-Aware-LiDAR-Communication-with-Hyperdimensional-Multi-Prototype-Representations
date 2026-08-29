@@ -325,7 +325,7 @@ See `reports/stage8_radio.md`. Uncoded BPSK/QPSK hard decisions vs matched i.i.d
 | Uncoded radio | Pure HDC stays flat under BPSK/QPSK AWGN and block Rayleigh; PCM/PCA still cliff. Matched i.i.d. BER tracks AWGN. |
 | Sensor dropout / scale | See Stage 3; not billed as communication noise |
 | Few-shot OOD | HDC updates are milliseconds vs seconds for a linear refit |
-| Hybrid encoder | Sector MLP+HDC ~0.76; see LiDAR hybrid for full-scan + record bundle |
+| Hybrid encoder | Prototype head ~0.73–0.80; linear head on HDC codes can match/beat hashing |
 
 Configs in `configs/`. Frozen splits in `data/splits/sim_indoor_v1/`.
 
