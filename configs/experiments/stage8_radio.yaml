@@ -1,0 +1,12 @@
+name: stage8_radio
+budget_bytes: 512
+seeds: [0, 1, 2]
+snr_db_ebn0: [8, 6, 4, 2, 0, -2]
+kinds: [bpsk_awgn, bpsk_rayleigh_block, qpsk_awgn, matched_ber]
+coherence_symbols: 32
+methods: [quantized, pca, binary_hash, pure_hdc]
+hdc_dimension: 4096
+notes: >
+  Radio replaces the abstract BER coin-flip. matched_ber uses the closed-form
+  uncoded BPSK AWGN BER at the same Eb/N0 so that structure (Rayleigh blocks)
+  can be compared against i.i.d. flips at the AWGN operating point.

@@ -41,6 +41,9 @@ def method_label(df: pd.DataFrame) -> pd.Series:
                 pass
         if r.get("interleave") is True:
             name = f"{name}+intl"
+        kind = r.get("channel_kind")
+        if pd.notna(kind) and str(kind) not in {"", "None"}:
+            name = f"{name}/{kind}"
         return name
 
     return df.apply(_one, axis=1)
@@ -58,8 +61,11 @@ def main() -> None:
     noise = load_jsonl(raw / "noise_sweep.jsonl")
     burst = load_jsonl(raw / "burst_sweep.jsonl")
     plr = load_jsonl(raw / "packet_loss_sweep.jsonl")
+    plr_intl = load_jsonl(raw / "packet_interleave_sweep.jsonl")
     sensor = load_jsonl(raw / "sensor_shift.jsonl")
     hybrid = load_jsonl(raw / "hybrid_sweep.jsonl")
+    radio = load_jsonl(raw / "radio_sweep.jsonl")
+    adapt_raw = load_jsonl(raw / "adaptation.jsonl")
 
     if not bw.empty:
         bw = bw.copy()
@@ -128,8 +134,23 @@ def main() -> None:
         )
         plr.to_csv(tables / "packet_loss_sweep.csv", index=False)
 
-    if not noise.empty or not burst.empty or not plr.empty:
-        _write_stage2(noise, burst, plr, reports / "stage2_noise.md")
+    if not plr_intl.empty:
+        plr_intl = plr_intl.copy()
+        plr_intl["method_label"] = method_label(plr_intl)
+        plot_metric_curves(
+            plr_intl,
+            x="packet_loss_rate",
+            y="accuracy",
+            hue="method_label",
+            title="Packet loss with and without bit interleaving (32-byte packets)",
+            path=fig / "accuracy_packet_interleave.png",
+            xlabel="Packet loss rate",
+            ylabel="Accuracy",
+        )
+        plr_intl.to_csv(tables / "packet_interleave_sweep.csv", index=False)
+
+    if not noise.empty or not burst.empty or not plr.empty or not plr_intl.empty:
+        _write_stage2(noise, burst, plr, reports / "stage2_noise.md", plr_intl=plr_intl)
 
     if not sensor.empty:
         sensor = sensor.copy()
@@ -153,9 +174,45 @@ def main() -> None:
         hybrid.to_csv(tables / "hybrid_sweep.csv", index=False)
         _write_stage5(hybrid, reports / "stage5_hybrid.md")
 
+    if not radio.empty:
+        radio = radio.copy()
+        radio["method_label"] = method_label(radio)
+        plot_metric_curves(
+            radio,
+            x="snr_db",
+            y="accuracy",
+            hue="method_label",
+            title="Accuracy vs Eb/N0 (uncoded radio, 512 bytes)",
+            path=fig / "accuracy_radio_snr.png",
+            xlabel="Eb/N0 (dB)",
+            ylabel="Accuracy",
+        )
+        radio.to_csv(tables / "radio_sweep.csv", index=False)
+        _write_stage8(radio, reports / "stage8_radio.md")
+
     adapt_path = tables / "adaptation.json"
-    adapt = pd.read_json(adapt_path) if adapt_path.exists() else pd.DataFrame()
-    _write_final(bw, noise, burst, plr, sensor, hybrid, adapt, reports / "final_report.md")
+    if not adapt_raw.empty:
+        adapt = adapt_raw
+        adapt.to_csv(tables / "adaptation.csv", index=False)
+        _write_stage4(adapt, reports / "stage4_adaptation.md")
+        _plot_adaptation(adapt, fig / "accuracy_adaptation.png")
+    elif adapt_path.exists():
+        adapt = pd.read_json(adapt_path)
+        _write_stage4(adapt, reports / "stage4_adaptation.md")
+    else:
+        adapt = pd.DataFrame()
+    _write_final(
+        bw,
+        noise,
+        burst,
+        plr,
+        sensor,
+        hybrid,
+        adapt,
+        reports / "final_report.md",
+        radio=radio,
+        plr_intl=plr_intl,
+    )
     print("reports updated")
 
 
@@ -202,7 +259,13 @@ def _write_stage1(bw: pd.DataFrame, path: Path) -> None:
     )
 
 
-def _write_stage2(noise: pd.DataFrame, burst: pd.DataFrame, plr: pd.DataFrame, path: Path) -> None:
+def _write_stage2(
+    noise: pd.DataFrame,
+    burst: pd.DataFrame,
+    plr: pd.DataFrame,
+    path: Path,
+    plr_intl: pd.DataFrame | None = None,
+) -> None:
     parts = [
         "# Stage 2 — communication robustness",
         "",
@@ -247,6 +310,23 @@ def _write_stage2(noise: pd.DataFrame, burst: pd.DataFrame, plr: pd.DataFrame, p
             .reset_index()
         )
         parts += [_md_table(g), "Figure: `results/figures/accuracy_packet_loss.png`.", ""]
+    parts += ["## Packet loss + bit interleaving", ""]
+    if plr_intl is None or plr_intl.empty:
+        parts.append("_Run `python scripts/run_packet_interleave_sweep.py`._\n")
+    else:
+        g = (
+            plr_intl.groupby(["method", "packet_loss_rate", "interleave"])[["accuracy"]]
+            .agg(["mean", "std"])
+            .round(4)
+            .reset_index()
+        )
+        parts += [
+            _md_table(g),
+            "Figure: `results/figures/accuracy_packet_interleave.png`. "
+            "Bits are permuted with a shared seed, packets are dropped, then the permutation is inverted. "
+            "A lost packet therefore punches scattered holes instead of one contiguous zero block.",
+            "",
+        ]
     path.write_text("\n".join(parts), encoding="utf-8")
 
 
@@ -303,6 +383,110 @@ def _write_stage5(hybrid: pd.DataFrame, path: Path) -> None:
     )
 
 
+def _plot_adaptation(adapt: pd.DataFrame, path: Path) -> None:
+    import matplotlib.pyplot as plt
+
+    fig, ax = plt.subplots(figsize=(7.2, 4.4))
+    fig.patch.set_facecolor("#020617")
+    ax.set_facecolor("#0b1220")
+    mapping = [
+        ("hdc_new_acc", "pure HDC (OOD)"),
+        ("quant_new_acc", "8-bit + logreg (OOD)"),
+        ("hybrid_new_acc", "hybrid-task HDC (OOD)"),
+    ]
+    for col, label in mapping:
+        if col not in adapt.columns:
+            continue
+        g = adapt.groupby("shots_per_class")[col].agg(["mean", "std"]).reset_index()
+        ax.plot(g["shots_per_class"], g["mean"], marker="o", label=label)
+        ax.fill_between(
+            g["shots_per_class"],
+            g["mean"] - g["std"].fillna(0),
+            g["mean"] + g["std"].fillna(0),
+            alpha=0.15,
+        )
+    ax.set_title("OOD accuracy vs labeled shots per class", color="#e2e8f0")
+    ax.set_xlabel("Shots per class", color="#94a3b8")
+    ax.set_ylabel("Accuracy", color="#94a3b8")
+    ax.tick_params(colors="#94a3b8")
+    ax.legend(facecolor="#0f172a", edgecolor="#1e293b", labelcolor="#e2e8f0")
+    for spine in ax.spines.values():
+        spine.set_color("#1e293b")
+    fig.tight_layout()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(path, dpi=150, facecolor=fig.get_facecolor())
+    plt.close(fig)
+
+
+def _write_stage4(adapt: pd.DataFrame, path: Path) -> None:
+    keys = ["shots_per_class"]
+    cols = [
+        c
+        for c in [
+            "hdc_new_acc",
+            "hdc_old_acc",
+            "hdc_forgetting",
+            "hdc_adapt_ms",
+            "quant_new_acc",
+            "quant_old_acc",
+            "quant_forgetting",
+            "quant_adapt_ms",
+            "hybrid_new_acc",
+            "hybrid_old_acc",
+            "hybrid_forgetting",
+            "hybrid_adapt_ms",
+        ]
+        if c in adapt.columns
+    ]
+    g = adapt.groupby(keys)[cols].agg(["mean", "std"]).round(4).reset_index()
+    path.write_text(
+        "\n".join(
+            [
+                "# Stage 4 — few-shot adaptation after environment shift",
+                "",
+                "Target is `test_ood` (held-out floorplan). Old-task accuracy is `test_id`. "
+                "HDC and hybrid-task update class prototypes by adding the encoded shot "
+                "(and subtracting the current prediction). The 8-bit baseline refits logistic "
+                "regression on train features plus the shots. Times are wall-clock for the update only.",
+                "",
+                _md_table(g),
+                "",
+                "Figure: `results/figures/accuracy_adaptation.png`.",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+
+def _write_stage8(radio: pd.DataFrame, path: Path) -> None:
+    g = (
+        radio.groupby(["method", "channel_kind", "snr_db"])[["accuracy", "empirical_ber", "theory_ber"]]
+        .mean()
+        .reset_index()
+        .round(4)
+    )
+    path.write_text(
+        "\n".join(
+            [
+                "# Stage 8 — uncoded radio vs i.i.d. BER",
+                "",
+                "Eb/N0 is the physical-layer SNR. BPSK/QPSK use hard decisions so the rest of "
+                "the stack still sees a bitstream. `matched_ber` flips bits i.i.d. at the closed-form "
+                "uncoded BPSK-AWGN BER for the same Eb/N0. Block Rayleigh (32-symbol coherence) "
+                "produces clustered errors; that is the test of whether holographic codes still "
+                "look BER-flat when the radio is not a coin-flip.",
+                "",
+                _md_table(g),
+                "",
+                "Figure: `results/figures/accuracy_radio_snr.png`.",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+
 def _write_final(
     bw: pd.DataFrame,
     noise: pd.DataFrame,
@@ -312,6 +496,8 @@ def _write_final(
     hybrid: pd.DataFrame,
     adapt: pd.DataFrame,
     path: Path,
+    radio: pd.DataFrame | None = None,
+    plr_intl: pd.DataFrame | None = None,
 ) -> None:
     lines = [
         "# Working region of HDC for task-aware LiDAR communication",
@@ -324,6 +510,8 @@ def _write_final(
         "- Receiver classifies from the transmitted representation; the scan is never reconstructed.",
         "- Methods: 8-bit quantization, PCA, binary hashing, pure HDC, autoencoder, hybrid neural-HDC.",
         "- Stage 2 uses 5 seeds for burst and packet loss; BER used 3 seeds in the first-round matrix.",
+        "- Stage 4 uses 10 / 50 / 100 shots per class, 3 seeds.",
+        "- Stage 8 is uncoded BPSK/QPSK at a grid of Eb/N0, plus matched i.i.d. BER.",
         "",
         "## RQ1 — bandwidth",
         "",
@@ -334,6 +522,7 @@ def _write_final(
         "Random BER: `reports/stage2_noise.md` and `results/figures/accuracy_ber.png`.",
         "Burst + interleaving: `results/figures/accuracy_burst.png`.",
         "Packet loss (32 B packets, zero-fill): `results/figures/accuracy_packet_loss.png`.",
+        "Packet loss + interleaving: `results/figures/accuracy_packet_interleave.png`.",
         "",
     ]
     if not noise.empty:
@@ -355,14 +544,26 @@ def _write_final(
             .round(4)
         )
         lines += ["Packet-loss means:", "", _md_table(gp)]
+    if plr_intl is not None and not plr_intl.empty:
+        gi = (
+            plr_intl.groupby(["method", "packet_loss_rate", "interleave"])["accuracy"]
+            .mean()
+            .reset_index()
+            .round(4)
+        )
+        lines += ["Packet-loss × interleave means:", "", _md_table(gi)]
     lines += [
         "## RQ3 — shift and adaptation",
         "",
         "Sensor corruptions (pre-encoder) and OOD floorplan: `reports/stage3_shift.md`.",
+        "Few-shot prototype / head updates: `reports/stage4_adaptation.md`.",
         "",
     ]
     if not adapt.empty:
-        lines += [_md_table(adapt.round(4)), ""]
+        mean_cols = [c for c in adapt.columns if c != "seed" and pd.api.types.is_numeric_dtype(adapt[c])]
+        keys = [c for c in ["shots_per_class"] if c in adapt.columns]
+        shown = adapt.groupby(keys)[mean_cols].mean().reset_index().round(4) if keys else adapt.round(4)
+        lines += [_md_table(shown), ""]
     lines += [
         "## Hybrid HDC (Stage 5)",
         "",
@@ -378,6 +579,20 @@ def _write_final(
             .round(4)
         )
         lines += [_md_table(gh)]
+    if radio is not None and not radio.empty:
+        lines += [
+            "## Realistic radio (Stage 8)",
+            "",
+            "See `reports/stage8_radio.md`. Uncoded BPSK/QPSK hard decisions vs matched i.i.d. BER at the same Eb/N0.",
+            "",
+        ]
+        gr = (
+            radio.groupby(["method", "channel_kind", "snr_db"])["accuracy"]
+            .mean()
+            .reset_index()
+            .round(4)
+        )
+        lines += [_md_table(gr)]
     lines += [
         "## Operating region",
         "",
@@ -385,10 +600,11 @@ def _write_final(
         "|---|---|",
         "| Clean 2D scan | Hashing / AE beat pure HDC |",
         "| Random BER | Pure HDC almost flat; PCM/PCA cliff |",
-        "| Burst / packet loss | See Stage 2 tables — binary codes degrade slower than float PCA |",
+        "| Burst / packet loss | Binary codes degrade slower than float PCA; interleave hurts PCM |",
+        "| Uncoded radio | See Stage 8 — compare Rayleigh blocks vs matched BER |",
         "| Sensor dropout / scale | See Stage 3; not billed as communication noise |",
-        "| Few-shot OOD | HDC updates are milliseconds vs seconds |",
-        "| Hybrid encoder | Stage 5: does task MLP + HDC close the hashing gap? |",
+        "| Few-shot OOD | HDC updates are milliseconds vs seconds for a linear refit |",
+        "| Hybrid encoder | Task MLP + HDC is BER-flat but still below hashing |",
         "",
         "Configs in `configs/`. Frozen splits in `data/splits/sim_indoor_v1/`.",
         "",

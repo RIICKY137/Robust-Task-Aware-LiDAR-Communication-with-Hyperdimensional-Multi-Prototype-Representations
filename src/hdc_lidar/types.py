@@ -80,6 +80,12 @@ class ChannelConfig:
     packet_loss_rate: float = 0.0
     interleave: bool = False
     seed: int = 0
+    # Stage 8 radio. When modulation is set and snr_db is finite, radio
+    # replaces the abstract BER coin-flip (do not stack both).
+    modulation: Literal["none", "bpsk", "qpsk"] = "none"
+    snr_db: float | None = None
+    fading: Literal["none", "rayleigh_iid", "rayleigh_block"] = "none"
+    coherence_symbols: int = 32
 
 
 @dataclass

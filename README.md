@@ -16,12 +16,13 @@ This repository follows the project brief: compare HDC against quantization, PCA
 | Random binary hashing (no HDC binding) | yes |
 | Pure HDC (position ⊗ level, bundle, prototypes) | yes |
 | MLP autoencoder latent + hybrid neural-HDC | yes |
-| BER, burst, packet loss, sensor dropout | yes |
-| Few-shot HDC prototype add/subtract | yes |
+| BER, burst, packet loss, packet+interleave, uncoded radio | yes |
+| Sensor dropout / scale (pre-encoder, not mixed with BER) | yes |
+| Few-shot HDC / hybrid prototype add/subtract (10/50/100) | yes |
 | Unit tests for HDC ops, bit accounting, channels, splits | yes |
 | Streamlit lab for scans, live channel, curves | yes |
 
-Later stages in the brief (BPSK/Rayleigh hardware, real public LiDAR place labels) plug into the same configs and JSONL schema.
+Later stages in the brief that are still open: a real public 2D LiDAR + place-label dataset (the simulator is the Stage 0 fallback), and a hardware radio trace. Stage 8 here is an uncoded BPSK/QPSK + AWGN/Rayleigh model, not over-the-air captures.
 
 ## Setup
 
@@ -52,11 +53,15 @@ python scripts/run_packet_loss_sweep.py
 # Stage 3 — sensor dropout / scale / OOD floorplan (not mixed with BER)
 python scripts/run_sensor_shift.py
 
-# Stage 4 subset — OOD few-shot HDC vs refitting 8-bit logistic regression
+# Stage 4 — 10 / 50 / 100-shot OOD HDC vs 8-bit logistic vs hybrid
 python scripts/run_shift_adaptation.py
 
 # Stage 5 — hybrid neural-HDC vs hashing / pure HDC
 python scripts/run_hybrid_compare.py
+
+# Stage 8 — uncoded BPSK/QPSK + AWGN/Rayleigh vs matched BER
+python scripts/run_radio_sweep.py
+python scripts/run_packet_interleave_sweep.py
 
 # Figures + markdown from raw JSONL (never hand-edit the curves)
 python scripts/aggregate_results.py
@@ -83,7 +88,7 @@ configs/ datasets, methods, experiments
 src/hdc_lidar/
   data/        simulator + frozen split I/O
   methods/     quantization, pca, autoencoder, binary_hash, pure_hdc, hybrid_hdc
-  channels/    bit_flip, burst_error, packet_loss, sensor_corruption
+  channels/    bit_flip, burst_error, packet_loss, radio (BPSK/QPSK), sensor_corruption
   adaptation/  prototype update and shot sampling
   evaluation/  accuracy, macro-F1, confusion, forgetting
 scripts/       prepare_data, sweeps, aggregate

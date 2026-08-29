@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
+from hdc_lidar.channels.radio import apply_radio, apply_radio_payloads
 from hdc_lidar.types import ChannelConfig
 from hdc_lidar.utils.bits import deinterleave_bits, interleave_bits
 
@@ -67,16 +68,57 @@ def apply_packet_loss(
     return bytes(out)
 
 
+def _radio_active(cfg: ChannelConfig) -> bool:
+    return (
+        cfg.modulation not in {"", "none"}
+        and cfg.snr_db is not None
+        and np.isfinite(cfg.snr_db)
+    )
+
+
 def apply_channel(payload: bytes, cfg: ChannelConfig, rng: np.random.Generator) -> bytes:
     data = payload
     order = None
     n_bits = len(data) * 8
     if cfg.interleave:
         data, order = interleave_bits(data, seed=cfg.seed + 17)
-    data = apply_bit_flip(data, cfg.ber, rng)
+    if _radio_active(cfg):
+        data = apply_radio(
+            data,
+            rng,
+            modulation=cfg.modulation,
+            snr_db=float(cfg.snr_db),
+            fading=cfg.fading,
+            coherence_symbols=cfg.coherence_symbols,
+        )
+    else:
+        data = apply_bit_flip(data, cfg.ber, rng)
     data = apply_burst_error(data, cfg.burst_length, cfg.n_bursts, rng, cfg.burst_mode)
     data = apply_packet_loss(data, cfg.packet_bytes, cfg.packet_loss_rate, rng)
     if cfg.interleave and order is not None:
         data = deinterleave_bits(data, order, n_bits)
         data = data[: len(payload)]
     return data
+
+
+def apply_channel_many(
+    payloads: list[bytes], cfg: ChannelConfig, rng: np.random.Generator
+) -> list[bytes]:
+    """Vectorized radio when that is the only impairment; otherwise per-payload."""
+    radio_only = (
+        _radio_active(cfg)
+        and cfg.ber <= 0.0
+        and cfg.burst_length <= 0
+        and cfg.packet_loss_rate <= 0.0
+        and not cfg.interleave
+    )
+    if radio_only:
+        return apply_radio_payloads(
+            payloads,
+            rng,
+            modulation=cfg.modulation,
+            snr_db=float(cfg.snr_db),
+            fading=cfg.fading,
+            coherence_symbols=cfg.coherence_symbols,
+        )
+    return [apply_channel(p, cfg, rng) for p in payloads]

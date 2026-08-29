@@ -177,6 +177,11 @@ def _live(batch, splits) -> None:
     plr = st.select_slider("Packet loss", options=[0.0, 0.01, 0.05, 0.10, 0.20, 0.40], value=0.0)
     burst = st.select_slider("Burst length (bits)", options=[0, 32, 128, 512, 1024], value=0)
     interleave = st.checkbox("Bit interleave (shared permutation)", value=False)
+    radio_mod = st.selectbox("Radio modulation", ["none", "bpsk", "qpsk"], index=0)
+    snr_db = st.select_slider("Eb/N0 (dB)", options=[12.0, 8.0, 6.0, 4.0, 2.0, 0.0, -2.0], value=6.0)
+    fading = st.selectbox("Fading", ["none", "rayleigh_iid", "rayleigh_block"], index=0)
+    if radio_mod != "none":
+        st.caption("Radio replaces the BER coin-flip. Burst and packet loss still apply after demodulation.")
     dim = st.select_slider("HDC / hash dimension cap", options=[1024, 4096, 8192], value=4096)
     split = st.selectbox("Evaluate on", ["test_id", "test_ood", "train"], index=0)
     seed = 7
@@ -186,14 +191,26 @@ def _live(batch, splits) -> None:
     k = st.slider("Scan index in split", 0, int(len(idx) - 1), 0)
     j = int(idx[k])
     rec = method.encode_one(batch.ranges[j])
-    channel = ChannelConfig(
-        ber=float(ber),
-        burst_length=int(burst),
-        n_bursts=0 if burst == 0 else 1,
-        packet_loss_rate=float(plr),
-        interleave=bool(interleave),
-        seed=seed,
-    )
+    if radio_mod != "none":
+        channel = ChannelConfig(
+            modulation=radio_mod,
+            snr_db=float(snr_db),
+            fading=fading,
+            burst_length=int(burst),
+            n_bursts=0 if burst == 0 else 1,
+            packet_loss_rate=float(plr),
+            interleave=bool(interleave),
+            seed=seed,
+        )
+    else:
+        channel = ChannelConfig(
+            ber=float(ber),
+            burst_length=int(burst),
+            n_bursts=0 if burst == 0 else 1,
+            packet_loss_rate=float(plr),
+            interleave=bool(interleave),
+            seed=seed,
+        )
     noisy = apply_channel(rec.payload, channel, np.random.default_rng(seed + k))
     pred = method.predict_from_payloads([noisy], batch.n_beams, batch.max_range)[0]
     true = int(batch.labels[j])
@@ -270,6 +287,13 @@ def _results() -> None:
         "method",
         "Accuracy vs packet loss",
     )
+    if "snr_db" in clean.columns:
+        radio = clean[pd.to_numeric(clean["snr_db"], errors="coerce").notna()]
+        color = "channel_kind" if "channel_kind" in radio.columns else "method"
+        if not radio.empty:
+            _chart(radio, "snr_db", "accuracy", "method", "Accuracy vs Eb/N0 (radio)")
+            if color == "channel_kind":
+                _chart(radio, "snr_db", "accuracy", "channel_kind", "Radio kinds vs Eb/N0")
 
 
 if __name__ == "__main__":

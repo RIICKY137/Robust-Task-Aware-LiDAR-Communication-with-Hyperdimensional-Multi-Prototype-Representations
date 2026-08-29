@@ -1,0 +1,8 @@
+name: stage4_adaptation
+budget_bytes: 512
+seeds: [0, 1, 2]
+shots_per_class: [10, 50, 100]
+methods: [pure_hdc, quantized_logreg, hybrid_hdc]
+hdc_dimension: 4096
+split_old: test_id
+split_new: test_ood

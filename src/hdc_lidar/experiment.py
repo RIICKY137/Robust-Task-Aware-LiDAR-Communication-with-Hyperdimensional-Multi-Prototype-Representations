@@ -8,10 +8,12 @@ from typing import Any
 
 import numpy as np
 
-from hdc_lidar.channels import apply_channel
+from hdc_lidar.channels import apply_channel, apply_channel_many
+from hdc_lidar.channels.radio import theoretical_ber
 from hdc_lidar.evaluation.metrics import task_metrics
 from hdc_lidar.methods import build_method
 from hdc_lidar.types import ChannelConfig, ExperimentRow, ScanBatch
+from hdc_lidar.utils.bits import measured_ber
 from hdc_lidar.utils.gitinfo import git_commit, repo_root
 from hdc_lidar.utils.timing import timed_repeats
 
@@ -93,7 +95,7 @@ def score_encoded(
 ) -> ExperimentRow:
     """Apply a channel to already-encoded payloads. Does not refit."""
     rng = np.random.default_rng(seed + 99)
-    noisy = [apply_channel(r.payload, channel, rng) for r in records]
+    noisy = apply_channel_many([r.payload for r in records], channel, rng)
     pred = method.predict_from_payloads(noisy, test.n_beams, test.max_range)
     metrics = task_metrics(test.labels, pred)
     actual_bits = float(np.mean([r.total_bits for r in records]))
@@ -104,7 +106,22 @@ def score_encoded(
         "interleave": channel.interleave,
         "n_bursts": channel.n_bursts,
         "hybrid_mode": getattr(method, "mode", None),
+        "modulation": channel.modulation,
+        "snr_db": channel.snr_db,
+        "fading": channel.fading,
+        "coherence_symbols": channel.coherence_symbols,
     }
+    sample = min(64, len(records))
+    if sample:
+        extras["empirical_ber"] = float(
+            np.mean([measured_ber(records[i].payload, noisy[i]) for i in range(sample)])
+        )
+    if channel.modulation not in {"", "none"} and channel.snr_db is not None:
+        extras["theory_ber"] = theoretical_ber(
+            float(channel.snr_db), channel.modulation, channel.fading
+        )
+    elif channel.ber > 0:
+        extras["theory_ber"] = float(channel.ber)
     if extra:
         extras.update(extra)
     return ExperimentRow(

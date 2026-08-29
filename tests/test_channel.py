@@ -50,3 +50,23 @@ def test_interleave_scatters_a_burst():
     longest = int(runs.max()) if runs.size else 0
     assert bits.sum() > 0
     assert longest < 64
+
+
+def test_interleave_scatters_packet_erasure():
+    from hdc_lidar.utils.bits import deinterleave_bits, interleave_bits
+
+    payload = bytes([0xFF]) * 128  # 4 packets of 32
+    shuffled, order = interleave_bits(payload, seed=1)
+    pkt = 32
+    chunks = [bytearray(shuffled[i : i + pkt]) for i in range(0, len(shuffled), pkt)]
+    chunks[1][:] = bytes(len(chunks[1]))  # drop exactly one packet
+    lost = b"".join(chunks)
+    scattered = deinterleave_bits(lost, order, len(payload) * 8)
+    bits = np.unpackbits(np.frombuffer(scattered, dtype=np.uint8), bitorder="big")
+    padded = np.concatenate([[1], bits, [1]])
+    d = np.diff((padded == 0).astype(np.int8))
+    starts = np.where(d == 1)[0]
+    ends = np.where(d == -1)[0]
+    longest = int((ends - starts).max()) if starts.size else 0
+    assert int((bits == 0).sum()) == pkt * 8
+    assert longest < pkt * 8
