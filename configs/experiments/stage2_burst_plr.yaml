@@ -1,0 +1,9 @@
+name: stage2_burst_plr
+budget_bytes: 512
+packet_bytes: 32
+seeds: [0, 1, 2, 3, 4]
+burst_lengths_bits: [0, 32, 128, 512, 1024]
+packet_loss_rates: [0.0, 0.01, 0.05, 0.10, 0.20, 0.40]
+methods: [quantized, pca, binary_hash, pure_hdc]
+hdc_dimension: 4096
+interleave: [false, true]

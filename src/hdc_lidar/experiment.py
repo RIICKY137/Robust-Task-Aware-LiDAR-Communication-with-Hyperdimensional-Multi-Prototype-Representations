@@ -70,9 +70,64 @@ def run_cell(
             "n_keep": getattr(method, "n_keep", None),
             "n_comp": getattr(method, "n_comp", None),
             "n_levels": getattr(method, "n_levels", None),
+            "interleave": channel.interleave,
+            "n_bursts": channel.n_bursts,
+            "hybrid_mode": getattr(method, "mode", None),
         },
     )
     return row, {"metrics": metrics, "pred": np.asarray(pred), "method": method}
+
+
+def encode_fitted(method, test: ScanBatch) -> list:
+    return method.encode_batch(test.ranges)
+
+
+def score_encoded(
+    method,
+    records: list,
+    test: ScanBatch,
+    channel: ChannelConfig,
+    seed: int,
+    budget_bytes: int,
+    extra: dict[str, Any] | None = None,
+) -> ExperimentRow:
+    """Apply a channel to already-encoded payloads. Does not refit."""
+    rng = np.random.default_rng(seed + 99)
+    noisy = [apply_channel(r.payload, channel, rng) for r in records]
+    pred = method.predict_from_payloads(noisy, test.n_beams, test.max_range)
+    metrics = task_metrics(test.labels, pred)
+    actual_bits = float(np.mean([r.total_bits for r in records]))
+    extras = {
+        "dimension": getattr(method, "dimension", None),
+        "n_keep": getattr(method, "n_keep", None),
+        "n_comp": getattr(method, "n_comp", None),
+        "interleave": channel.interleave,
+        "n_bursts": channel.n_bursts,
+        "hybrid_mode": getattr(method, "mode", None),
+    }
+    if extra:
+        extras.update(extra)
+    return ExperimentRow(
+        dataset="sim_indoor_v1",
+        split="custom",
+        method=method.name,
+        budget_bytes=budget_bytes,
+        actual_bytes=actual_bits / 8.0,
+        ber=channel.ber,
+        burst_length=channel.burst_length,
+        packet_loss_rate=channel.packet_loss_rate,
+        seed=seed,
+        accuracy=metrics["accuracy"],
+        macro_f1=metrics["macro_f1"],
+        encode_ms_median=0.0,
+        encode_ms_p95=0.0,
+        classify_ms_median=0.0,
+        classify_ms_p95=0.0,
+        model_bytes=method.model_bytes(),
+        shared_memory_bytes=method.shared_memory_bytes(),
+        git_commit=git_commit(),
+        extras=extras,
+    )
 
 
 def row_to_dict(row: ExperimentRow) -> dict:

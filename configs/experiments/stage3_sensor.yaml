@@ -1,0 +1,5 @@
+name: stage3_sensor
+budget_bytes: 512
+seeds: [0, 1, 2]
+splits: [test_id, test_ood]
+methods: [quantized, pca, binary_hash, pure_hdc, hybrid_hdc]

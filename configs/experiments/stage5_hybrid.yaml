@@ -1,0 +1,6 @@
+name: stage5_hybrid
+budget_bytes: 512
+seeds: [0, 1, 2]
+bers: [0.0, 0.01, 0.05, 0.10]
+methods: [binary_hash, pure_hdc, hybrid_hdc]
+hybrid_modes: [frozen, task]

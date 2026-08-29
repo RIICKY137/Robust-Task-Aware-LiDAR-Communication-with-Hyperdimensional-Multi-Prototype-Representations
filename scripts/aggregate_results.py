@@ -28,6 +28,24 @@ def summarize(df: pd.DataFrame, keys: list[str]) -> pd.DataFrame:
     return df.groupby(keys)[have].agg(["mean", "std"]).reset_index()
 
 
+def method_label(df: pd.DataFrame) -> pd.Series:
+    def _one(r):
+        name = str(r.get("method", ""))
+        mode = r.get("hybrid_mode")
+        if name == "hybrid_hdc" and pd.notna(mode) and str(mode) not in {"", "None"}:
+            name = f"hybrid_hdc:{mode}"
+        elif name == "pure_hdc" and pd.notna(r.get("dimension")):
+            try:
+                name = f"pure_hdc_D{int(r['dimension'])}"
+            except (TypeError, ValueError):
+                pass
+        if r.get("interleave") is True:
+            name = f"{name}+intl"
+        return name
+
+    return df.apply(_one, axis=1)
+
+
 def main() -> None:
     raw = ROOT / "results" / "raw"
     fig = ROOT / "results" / "figures"
@@ -38,17 +56,14 @@ def main() -> None:
 
     bw = load_jsonl(raw / "bandwidth_sweep.jsonl")
     noise = load_jsonl(raw / "noise_sweep.jsonl")
+    burst = load_jsonl(raw / "burst_sweep.jsonl")
+    plr = load_jsonl(raw / "packet_loss_sweep.jsonl")
+    sensor = load_jsonl(raw / "sensor_shift.jsonl")
+    hybrid = load_jsonl(raw / "hybrid_sweep.jsonl")
 
     if not bw.empty:
-        # collapse HDC dims into method label
         bw = bw.copy()
-        if "dimension" in bw.columns:
-            bw["method_label"] = bw.apply(
-                lambda r: f"{r['method']}" + (f"_D{int(r['dimension'])}" if pd.notna(r["dimension"]) else ""),
-                axis=1,
-            )
-        else:
-            bw["method_label"] = bw["method"]
+        bw["method_label"] = method_label(bw)
         plot_metric_curves(
             bw,
             x="budget_bytes",
@@ -84,14 +99,63 @@ def main() -> None:
             ylabel="Accuracy",
         )
         noise.to_csv(tables / "noise_sweep.csv", index=False)
-        _write_stage2(noise, reports / "stage2_noise.md")
+
+    if not burst.empty:
+        burst = burst.copy()
+        burst["method_label"] = method_label(burst)
+        plot_metric_curves(
+            burst,
+            x="burst_length",
+            y="accuracy",
+            hue="method_label",
+            title="Accuracy vs burst length (512 bytes/sample)",
+            path=fig / "accuracy_burst.png",
+            xlabel="Burst length (bits)",
+            ylabel="Accuracy",
+        )
+        burst.to_csv(tables / "burst_sweep.csv", index=False)
+
+    if not plr.empty:
+        plot_metric_curves(
+            plr,
+            x="packet_loss_rate",
+            y="accuracy",
+            hue="method",
+            title="Accuracy vs packet loss rate (32-byte packets)",
+            path=fig / "accuracy_packet_loss.png",
+            xlabel="Packet loss rate",
+            ylabel="Accuracy",
+        )
+        plr.to_csv(tables / "packet_loss_sweep.csv", index=False)
+
+    if not noise.empty or not burst.empty or not plr.empty:
+        _write_stage2(noise, burst, plr, reports / "stage2_noise.md")
+
+    if not sensor.empty:
+        sensor = sensor.copy()
+        sensor["method_label"] = method_label(sensor)
+        sensor.to_csv(tables / "sensor_shift.csv", index=False)
+        _write_stage3(sensor, reports / "stage3_shift.md")
+
+    if not hybrid.empty:
+        hybrid = hybrid.copy()
+        hybrid["method_label"] = method_label(hybrid)
+        plot_metric_curves(
+            hybrid,
+            x="ber",
+            y="accuracy",
+            hue="method_label",
+            title="Hybrid HDC vs hashing / pure HDC (512 bytes)",
+            path=fig / "accuracy_hybrid_ber.png",
+            xlabel="BER",
+            ylabel="Accuracy",
+        )
+        hybrid.to_csv(tables / "hybrid_sweep.csv", index=False)
+        _write_stage5(hybrid, reports / "stage5_hybrid.md")
 
     adapt_path = tables / "adaptation.json"
-    if adapt_path.exists():
-        adapt = pd.read_json(adapt_path)
-        _write_final(bw, noise, adapt, reports / "final_report.md")
-    else:
-        _write_final(bw, noise, pd.DataFrame(), reports / "final_report.md")
+    adapt = pd.read_json(adapt_path) if adapt_path.exists() else pd.DataFrame()
+    _write_final(bw, noise, burst, plr, sensor, hybrid, adapt, reports / "final_report.md")
     print("reports updated")
 
 
@@ -138,23 +202,74 @@ def _write_stage1(bw: pd.DataFrame, path: Path) -> None:
     )
 
 
-def _write_stage2(noise: pd.DataFrame, path: Path) -> None:
+def _write_stage2(noise: pd.DataFrame, burst: pd.DataFrame, plr: pd.DataFrame, path: Path) -> None:
+    parts = [
+        "# Stage 2 — communication robustness",
+        "",
+        "Noise is applied to the serialized payload. Receiver uses a pre-agreed layout; dropped packets are filled with zeros.",
+        "",
+        "## Random bit flips",
+        "",
+    ]
+    if noise.empty:
+        parts.append("_Run `python scripts/run_noise_sweep.py`._\n")
+    else:
+        g = (
+            noise.groupby(["method", "ber"])[["accuracy", "macro_f1"]]
+            .agg(["mean", "std"])
+            .round(4)
+            .reset_index()
+        )
+        parts += [_md_table(g), "Figure: `results/figures/accuracy_ber.png`.", ""]
+    parts += ["## Burst errors", ""]
+    if burst.empty:
+        parts.append("_Run `python scripts/run_burst_sweep.py`._\n")
+    else:
+        g = (
+            burst.groupby(["method", "burst_length", "interleave"])[["accuracy"]]
+            .agg(["mean", "std"])
+            .round(4)
+            .reset_index()
+        )
+        parts += [
+            _md_table(g),
+            "Figure: `results/figures/accuracy_burst.png`. Interleaving permutes bits with a shared seed before the burst, then inverts the permutation at the receiver.",
+            "",
+        ]
+    parts += ["## Packet loss", ""]
+    if plr.empty:
+        parts.append("_Run `python scripts/run_packet_loss_sweep.py`._\n")
+    else:
+        g = (
+            plr.groupby(["method", "packet_loss_rate"])[["accuracy", "macro_f1"]]
+            .agg(["mean", "std"])
+            .round(4)
+            .reset_index()
+        )
+        parts += [_md_table(g), "Figure: `results/figures/accuracy_packet_loss.png`.", ""]
+    path.write_text("\n".join(parts), encoding="utf-8")
+
+
+def _write_stage3(sensor: pd.DataFrame, path: Path) -> None:
+    id_ = sensor[sensor["split"] == "test_id"] if "split" in sensor.columns else sensor
     g = (
-        noise.groupby(["method", "ber"])[["accuracy", "macro_f1"]]
-        .agg(["mean", "std"])
-        .round(4)
+        id_.groupby(["method_label", "sensor"])[["accuracy", "macro_f1"]]
+        .mean()
         .reset_index()
+        .round(4)
     )
     path.write_text(
         "\n".join(
             [
-                "# Stage 2 — bit-error robustness",
+                "# Stage 3 — sensor corruption and environment shift",
                 "",
-                "Fixed 512 bytes/sample budget. Bit flips applied to the serialized payload, not to the classifier output.",
+                "These perturbations hit the LiDAR scan **before** encoding. They are not mixed into BER/PLR tables.",
+                "",
+                "In-distribution test (`test_id`), mean over seeds:",
                 "",
                 _md_table(g),
                 "",
-                "Figure: `results/figures/accuracy_ber.png`.",
+                "OOD (`test_ood`) is the held-out floorplan with the same corruptions. See `results/tables/sensor_shift.csv`.",
                 "",
             ]
         ),
@@ -162,7 +277,42 @@ def _write_stage2(noise: pd.DataFrame, path: Path) -> None:
     )
 
 
-def _write_final(bw: pd.DataFrame, noise: pd.DataFrame, adapt: pd.DataFrame, path: Path) -> None:
+def _write_stage5(hybrid: pd.DataFrame, path: Path) -> None:
+    g = (
+        hybrid.groupby(["method_label", "ber"])[["accuracy", "macro_f1"]]
+        .mean()
+        .reset_index()
+        .round(4)
+    )
+    path.write_text(
+        "\n".join(
+            [
+                "# Stage 5 — hybrid neural-HDC",
+                "",
+                "`hybrid_hdc:frozen` maps sector statistics through `sign(Rz)` into HDC prototypes. "
+                "`hybrid_hdc:task` first trains a small MLP on the place labels, freezes the hidden layer, then uses the same HDC head. "
+                "Binary hashing remains the non-HDC binary control.",
+                "",
+                _md_table(g),
+                "",
+                "Figure: `results/figures/accuracy_hybrid_ber.png`.",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+
+def _write_final(
+    bw: pd.DataFrame,
+    noise: pd.DataFrame,
+    burst: pd.DataFrame,
+    plr: pd.DataFrame,
+    sensor: pd.DataFrame,
+    hybrid: pd.DataFrame,
+    adapt: pd.DataFrame,
+    path: Path,
+) -> None:
     lines = [
         "# Working region of HDC for task-aware LiDAR communication",
         "",
@@ -170,66 +320,77 @@ def _write_final(bw: pd.DataFrame, noise: pd.DataFrame, adapt: pd.DataFrame, pat
         "",
         "## What was measured",
         "",
-        "- Task: 5-way place classification (corridor / room / doorway / open / cluttered) on `sim_indoor_v1`.",
-        "- Receiver classifies from the transmitted representation; the scan is never reconstructed for the metric.",
-        "- First-round methods: 8-bit quantization, PCA, binary hashing, pure HDC. Autoencoder and hybrid HDC are implemented for later stages.",
-        "- Splits: trajectory hold-out (`test_id`) and a different floorplan (`test_ood`).",
+        "- Task: 5-way place classification on `sim_indoor_v1`.",
+        "- Receiver classifies from the transmitted representation; the scan is never reconstructed.",
+        "- Methods: 8-bit quantization, PCA, binary hashing, pure HDC, autoencoder, hybrid neural-HDC.",
+        "- Stage 2 uses 5 seeds for burst and packet loss; BER used 3 seeds in the first-round matrix.",
         "",
         "## RQ1 — bandwidth",
         "",
-        "On a 180-beam 2D scan, full 8-bit PCM is only **188 bytes** including header. Raising the budget above that does not add beams, so quantization saturates. HDC at D=8K is **1024 bytes**, already larger than the raw 8-bit scan — this is the brief's Risk 2.",
+        "See `reports/stage1_bandwidth.md`. On this 180-beam scan, 8-bit PCM saturates at ~188 bytes. Pure HDC is not a compression win (Outcome A fails). Binary hashing leads on a clean channel.",
         "",
-        "Clean-channel ID accuracy (means over 3 seeds): binary hashing is strongest (~0.86 at 128 B, ~0.92 at 512 B). Pure HDC sits with 8-bit PCM and PCA around **0.73–0.75** and barely moves with D. So HDC is **not** a bandwidth winner here (Outcome A fails). The hashing vs HDC gap is Risk 3: much of the clean-channel gain is **binarization + a trained linear head**, not position-level binding.",
+        "## RQ2 — communication noise",
         "",
-        "See `reports/stage1_bandwidth.md` and `results/figures/accuracy_bandwidth.png`.",
-        "",
-        "## RQ2 — noise (clearest HDC advantage)",
-        "",
-        "At a 512-byte cap, flipping bits in the **payload** (not the labels):",
+        "Random BER: `reports/stage2_noise.md` and `results/figures/accuracy_ber.png`.",
+        "Burst + interleaving: `results/figures/accuracy_burst.png`.",
+        "Packet loss (32 B packets, zero-fill): `results/figures/accuracy_packet_loss.png`.",
         "",
     ]
     if not noise.empty:
         g = noise.groupby(["method", "ber"])["accuracy"].mean().unstack("ber")
-        lines.append(_md_table(g.reset_index()))
-        lines += [
-            "Pure HDC is almost flat from BER 0 to 0.10 (**~0.731 → ~0.729**). "
-            "8-bit PCM drops **0.75 → 0.29**. PCA float32 bits collapse **0.75 → 0.17**. "
-            "Binary hashing degrades slowly (**0.92 → 0.84**) but still faster than HDC.",
-            "",
-            "This is **Outcome B**: at matched budget, HDC shows repeatable graceful degradation versus at least two reasonable baselines, across seeds. Binary hashing shares the binary codebook robustness; HDC's extra structure did not win clean accuracy, but Hamming/cosine to analog prototypes is the most noise-stable classifier in this matrix.",
-            "",
-        ]
+        lines += ["BER means:", "", _md_table(g.reset_index())]
+    if not burst.empty:
+        gb = (
+            burst.groupby(["method", "burst_length", "interleave"])["accuracy"]
+            .mean()
+            .reset_index()
+            .round(4)
+        )
+        lines += ["Burst means:", "", _md_table(gb)]
+    if not plr.empty:
+        gp = (
+            plr.groupby(["method", "packet_loss_rate"])["accuracy"]
+            .mean()
+            .reset_index()
+            .round(4)
+        )
+        lines += ["Packet-loss means:", "", _md_table(gp)]
     lines += [
-        "Figure: `results/figures/accuracy_ber.png`.",
+        "## RQ3 — shift and adaptation",
         "",
-        "## RQ3 — few-shot adaptation",
+        "Sensor corruptions (pre-encoder) and OOD floorplan: `reports/stage3_shift.md`.",
         "",
     ]
-    if adapt.empty:
-        lines.append("Run `python scripts/run_shift_adaptation.py` to fill this section.")
-    else:
-        lines.append(_md_table(adapt.round(4)))
-        lines += [
-            "",
-            "HDC prototype add/subtract on OOD shots runs in **milliseconds** vs **~12 s** to refit the 8-bit logistic head on train+shots. "
-            "OOD accuracy gains are modest for both; the linear head still ends slightly higher. Forgetting stays < 1 pp for HDC and ~1–2 pp for the refit. "
-            "This is a **cost** win (Outcome C on update time), not an accuracy win.",
-            "",
-        ]
+    if not adapt.empty:
+        lines += [_md_table(adapt.round(4)), ""]
     lines += [
-        "## Mapped operating region (Outcome D)",
+        "## Hybrid HDC (Stage 5)",
         "",
-        "| Regime | What happens |",
+        "See `reports/stage5_hybrid.md`. This tests whether a task-trained encoder recovers the geometry that record-based pure HDC drops, while keeping a binary HDC payload.",
+        "",
+    ]
+    if not hybrid.empty:
+        gh = (
+            hybrid.assign(method_label=method_label(hybrid))
+            .groupby(["method_label", "ber"])["accuracy"]
+            .mean()
+            .reset_index()
+            .round(4)
+        )
+        lines += [_md_table(gh)]
+    lines += [
+        "## Operating region",
+        "",
+        "| Regime | Current reading |",
         "|---|---|",
-        "| Clean channel, 2D 180-beam scan | Binary hashing (or AE) beats pure HDC. HDC ≈ 8-bit PCM. |",
-        "| Budget ≫ 188 bytes | Extra bytes do not help 8-bit PCM; HDC larger than the scan is not a compression win. |",
-        "| BER 1–10% on the payload | **HDC holds accuracy**; PCM and PCA cliff. Hashing holds most but not all. |",
-        "| Few OOD labels | HDC updates are 100–1000× faster; accuracy recovery is small on this shift. |",
-        "| Next levers | Region pooling, temporal n-grams, hybrid encoder (Stage 5), real labeled LiDAR. |",
+        "| Clean 2D scan | Hashing / AE beat pure HDC |",
+        "| Random BER | Pure HDC almost flat; PCM/PCA cliff |",
+        "| Burst / packet loss | See Stage 2 tables — binary codes degrade slower than float PCA |",
+        "| Sensor dropout / scale | See Stage 3; not billed as communication noise |",
+        "| Few-shot OOD | HDC updates are milliseconds vs seconds |",
+        "| Hybrid encoder | Stage 5: does task MLP + HDC close the hashing gap? |",
         "",
-        "## Reproducibility",
-        "",
-        "Configs in `configs/`. Frozen splits in `data/splits/sim_indoor_v1/`. Every JSONL row stores method, budget, BER, seed, and git commit.",
+        "Configs in `configs/`. Frozen splits in `data/splits/sim_indoor_v1/`.",
         "",
     ]
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")

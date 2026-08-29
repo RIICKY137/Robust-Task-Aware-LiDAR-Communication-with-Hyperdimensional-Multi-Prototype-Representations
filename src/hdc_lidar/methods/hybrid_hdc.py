@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 from sklearn.neural_network import MLPClassifier
 
-from hdc_lidar.hdc_ops import cosine_similarity, random_hv
+from hdc_lidar.hdc_ops import cosine_similarity
 from hdc_lidar.methods.base import BaseMethod
 from hdc_lidar.methods.pure_hdc import PureHDCMethod
 from hdc_lidar.types import TransmitRecord
@@ -102,11 +102,17 @@ class HybridHDCMethod(BaseMethod):
                 self.hdc.counts[k] = int(mask.sum())
         self.fitted = True
 
+    def encode_batch(self, ranges: np.ndarray) -> list[TransmitRecord]:
+        feat = self._features(np.atleast_2d(ranges.astype(np.float32)))
+        hv = self._to_hv(feat)
+        out: list[TransmitRecord] = []
+        for row in hv:
+            blob = pack_bipolar(row)
+            out.append(TransmitRecord(payload=blob, n_payload_bits=self.dimension, metadata_bits=0))
+        return out
+
     def encode_one(self, scan: np.ndarray) -> TransmitRecord:
-        feat = self._features(scan.reshape(1, -1))
-        hv = self._to_hv(feat)[0]
-        blob = pack_bipolar(hv)
-        return TransmitRecord(payload=blob, n_payload_bits=self.dimension, metadata_bits=0)
+        return self.encode_batch(scan.reshape(1, -1))[0]
 
     def predict_from_payloads(self, payloads: list[bytes], n_beams: int, max_range: float) -> np.ndarray:
         hv = np.stack([unpack_bipolar(p, self.dimension, 1) for p in payloads])

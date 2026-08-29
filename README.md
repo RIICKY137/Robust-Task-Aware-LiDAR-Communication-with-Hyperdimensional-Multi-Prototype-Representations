@@ -21,7 +21,7 @@ This repository follows the project brief: compare HDC against quantization, PCA
 | Unit tests for HDC ops, bit accounting, channels, splits | yes |
 | Streamlit lab for scans, live channel, curves | yes |
 
-Later stages in the brief (full packet-loss matrix, 5+ seeds, BPSK/Rayleigh, real public datasets) plug into the same configs and JSONL schema.
+Later stages in the brief (BPSK/Rayleigh hardware, real public LiDAR place labels) plug into the same configs and JSONL schema.
 
 ## Setup
 
@@ -46,9 +46,17 @@ python scripts/run_bandwidth_sweep.py
 
 # Stage 2 — Accuracy–BER at 512 bytes
 python scripts/run_noise_sweep.py
+python scripts/run_burst_sweep.py
+python scripts/run_packet_loss_sweep.py
+
+# Stage 3 — sensor dropout / scale / OOD floorplan (not mixed with BER)
+python scripts/run_sensor_shift.py
 
 # Stage 4 subset — OOD few-shot HDC vs refitting 8-bit logistic regression
 python scripts/run_shift_adaptation.py
+
+# Stage 5 — hybrid neural-HDC vs hashing / pure HDC
+python scripts/run_hybrid_compare.py
 
 # Figures + markdown from raw JSONL (never hand-edit the curves)
 python scripts/aggregate_results.py

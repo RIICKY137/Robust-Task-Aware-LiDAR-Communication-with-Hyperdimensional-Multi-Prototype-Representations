@@ -174,6 +174,9 @@ def _live(batch, splits) -> None:
     )
     budget = c2.selectbox("Budget (bytes/sample)", [128, 512, 2048], index=1)
     ber = c3.select_slider("BER", options=[0.0, 0.001, 0.005, 0.01, 0.02, 0.05, 0.10, 0.20], value=0.01)
+    plr = st.select_slider("Packet loss", options=[0.0, 0.01, 0.05, 0.10, 0.20, 0.40], value=0.0)
+    burst = st.select_slider("Burst length (bits)", options=[0, 32, 128, 512, 1024], value=0)
+    interleave = st.checkbox("Bit interleave (shared permutation)", value=False)
     dim = st.select_slider("HDC / hash dimension cap", options=[1024, 4096, 8192], value=4096)
     split = st.selectbox("Evaluate on", ["test_id", "test_ood", "train"], index=0)
     seed = 7
@@ -183,7 +186,15 @@ def _live(batch, splits) -> None:
     k = st.slider("Scan index in split", 0, int(len(idx) - 1), 0)
     j = int(idx[k])
     rec = method.encode_one(batch.ranges[j])
-    noisy = apply_channel(rec.payload, ChannelConfig(ber=float(ber), seed=seed), np.random.default_rng(seed + k))
+    channel = ChannelConfig(
+        ber=float(ber),
+        burst_length=int(burst),
+        n_bursts=0 if burst == 0 else 1,
+        packet_loss_rate=float(plr),
+        interleave=bool(interleave),
+        seed=seed,
+    )
+    noisy = apply_channel(rec.payload, channel, np.random.default_rng(seed + k))
     pred = method.predict_from_payloads([noisy], batch.n_beams, batch.max_range)[0]
     true = int(batch.labels[j])
     left, right = st.columns(2)
@@ -203,9 +214,7 @@ def _live(batch, splits) -> None:
         test = batch.subset(idx)
         records = method.encode_batch(test.ranges)
         rng = np.random.default_rng(seed)
-        payloads = [
-            apply_channel(r.payload, ChannelConfig(ber=float(ber), seed=seed), rng) for r in records
-        ]
+        payloads = [apply_channel(r.payload, channel, rng) for r in records]
         yhat = method.predict_from_payloads(payloads, test.n_beams, test.max_range)
         m = task_metrics(test.labels, yhat)
         st.metric("Accuracy", f"{m['accuracy']:.3f}")
@@ -217,40 +226,50 @@ def _live(batch, splits) -> None:
 def _results() -> None:
     df = _load_results()
     if df.empty:
-        st.info("No `results/raw/*.jsonl` yet. Run `python scripts/run_bandwidth_sweep.py` and `run_noise_sweep.py`.")
+        st.info("No `results/raw/*.jsonl` yet. Run the Stage 1–3 sweep scripts.")
         return
     st.subheader("Logged experiments")
     st.dataframe(df, use_container_width=True, height=280)
     import plotly.express as px
 
-    if {"accuracy", "actual_bytes", "method"} <= set(df.columns):
-        clean = df.copy()
-        if "ber" in clean.columns:
-            zero = clean[clean["ber"].fillna(0) == 0]
-            if not zero.empty:
-                fig = px.line(
-                    zero.groupby(["method", "budget_bytes"], as_index=False)["accuracy"].mean(),
-                    x="budget_bytes",
-                    y="accuracy",
-                    color="method",
-                    markers=True,
-                    title="Accuracy vs communication budget (BER = 0)",
-                    template="plotly_dark",
-                )
-                fig.update_layout(paper_bgcolor="#020617", plot_bgcolor="#0b1220")
-                st.plotly_chart(fig, use_container_width=True)
-        if "ber" in clean.columns:
-            fig2 = px.line(
-                clean.groupby(["method", "ber"], as_index=False)["accuracy"].mean(),
-                x="ber",
-                y="accuracy",
-                color="method",
-                markers=True,
-                title="Accuracy vs bit error rate",
-                template="plotly_dark",
-            )
-            fig2.update_layout(paper_bgcolor="#020617", plot_bgcolor="#0b1220")
-            st.plotly_chart(fig2, use_container_width=True)
+    def _chart(data, x, y, color, title):
+        if data.empty or x not in data.columns:
+            return
+        g = data.groupby([color, x], as_index=False)[y].mean()
+        fig = px.line(g, x=x, y=y, color=color, markers=True, title=title, template="plotly_dark")
+        fig.update_layout(paper_bgcolor="#020617", plot_bgcolor="#0b1220")
+        st.plotly_chart(fig, use_container_width=True)
+
+    clean = df.copy()
+    for col, default in (("ber", 0.0), ("burst_length", 0), ("packet_loss_rate", 0.0)):
+        if col not in clean.columns:
+            clean[col] = default
+        clean[col] = pd.to_numeric(clean[col], errors="coerce").fillna(default)
+
+    bw = clean[(clean["ber"] == 0) & (clean["burst_length"] == 0) & (clean["packet_loss_rate"] == 0)]
+    if "budget_bytes" in bw.columns:
+        _chart(bw, "budget_bytes", "accuracy", "method", "Accuracy vs communication budget (clean channel)")
+    _chart(
+        clean[(clean["burst_length"] == 0) & (clean["packet_loss_rate"] == 0)],
+        "ber",
+        "accuracy",
+        "method",
+        "Accuracy vs bit error rate",
+    )
+    _chart(
+        clean[(clean["ber"] == 0) & (clean["packet_loss_rate"] == 0)],
+        "burst_length",
+        "accuracy",
+        "method",
+        "Accuracy vs burst length",
+    )
+    _chart(
+        clean[(clean["ber"] == 0) & (clean["burst_length"] == 0)],
+        "packet_loss_rate",
+        "accuracy",
+        "method",
+        "Accuracy vs packet loss",
+    )
 
 
 if __name__ == "__main__":
