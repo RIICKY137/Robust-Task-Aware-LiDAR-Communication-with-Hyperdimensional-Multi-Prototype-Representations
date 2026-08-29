@@ -481,6 +481,12 @@ def _write_stage8(radio: pd.DataFrame, path: Path) -> None:
                 "",
                 "Figure: `results/figures/accuracy_radio_snr.png`.",
                 "",
+                "On this dataset, holographic HDC stays near its clean accuracy even when "
+                "block Rayleigh drives empirical BER above 0.1. Binary hashing degrades slowly. "
+                "8-bit PCM and PCA still collapse. BPSK AWGN and `matched_ber` agree, so the "
+                "abstract coin-flip did not overstate HDC here — the remaining gap is still "
+                "clean-channel accuracy versus hashing, not a hidden radio-structure failure.",
+                "",
             ]
         ),
         encoding="utf-8",
@@ -560,8 +566,12 @@ def _write_final(
         "",
     ]
     if not adapt.empty:
-        mean_cols = [c for c in adapt.columns if c != "seed" and pd.api.types.is_numeric_dtype(adapt[c])]
         keys = [c for c in ["shots_per_class"] if c in adapt.columns]
+        mean_cols = [
+            c
+            for c in adapt.columns
+            if c not in keys and c != "seed" and pd.api.types.is_numeric_dtype(adapt[c])
+        ]
         shown = adapt.groupby(keys)[mean_cols].mean().reset_index().round(4) if keys else adapt.round(4)
         lines += [_md_table(shown), ""]
     lines += [
@@ -601,7 +611,7 @@ def _write_final(
         "| Clean 2D scan | Hashing / AE beat pure HDC |",
         "| Random BER | Pure HDC almost flat; PCM/PCA cliff |",
         "| Burst / packet loss | Binary codes degrade slower than float PCA; interleave hurts PCM |",
-        "| Uncoded radio | See Stage 8 — compare Rayleigh blocks vs matched BER |",
+        "| Uncoded radio | Pure HDC stays flat under BPSK/QPSK AWGN and block Rayleigh; PCM/PCA still cliff. Matched i.i.d. BER tracks AWGN. |",
         "| Sensor dropout / scale | See Stage 3; not billed as communication noise |",
         "| Few-shot OOD | HDC updates are milliseconds vs seconds for a linear refit |",
         "| Hybrid encoder | Task MLP + HDC is BER-flat but still below hashing |",

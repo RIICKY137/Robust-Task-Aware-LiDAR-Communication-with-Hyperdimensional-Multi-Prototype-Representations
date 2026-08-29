@@ -1,0 +1,107 @@
+# Stage 8 — uncoded radio vs i.i.d. BER
+
+Eb/N0 is the physical-layer SNR. BPSK/QPSK use hard decisions so the rest of the stack still sees a bitstream. `matched_ber` flips bits i.i.d. at the closed-form uncoded BPSK-AWGN BER for the same Eb/N0. Block Rayleigh (32-symbol coherence) produces clustered errors; that is the test of whether holographic codes still look BER-flat when the radio is not a coin-flip.
+
+| method | channel_kind | snr_db | accuracy | empirical_ber | theory_ber |
+| --- | --- | --- | --- | --- | --- |
+| binary_hash | bpsk_awgn | -2.0000 | 0.8150 | 0.1309 | 0.1306 |
+| binary_hash | bpsk_awgn | 0.0000 | 0.8650 | 0.0785 | 0.0786 |
+| binary_hash | bpsk_awgn | 2.0000 | 0.9009 | 0.0374 | 0.0375 |
+| binary_hash | bpsk_awgn | 4.0000 | 0.9144 | 0.0124 | 0.0125 |
+| binary_hash | bpsk_awgn | 6.0000 | 0.9194 | 0.0023 | 0.0024 |
+| binary_hash | bpsk_awgn | 8.0000 | 0.9218 | 0.0002 | 0.0002 |
+| binary_hash | bpsk_rayleigh_block | -2.0000 | 0.7445 | 0.1887 | 0.1890 |
+| binary_hash | bpsk_rayleigh_block | 0.0000 | 0.7896 | 0.1464 | 0.1464 |
+| binary_hash | bpsk_rayleigh_block | 2.0000 | 0.8274 | 0.1088 | 0.1085 |
+| binary_hash | bpsk_rayleigh_block | 4.0000 | 0.8545 | 0.0774 | 0.0771 |
+| binary_hash | bpsk_rayleigh_block | 6.0000 | 0.8829 | 0.0535 | 0.0530 |
+| binary_hash | bpsk_rayleigh_block | 8.0000 | 0.9009 | 0.0359 | 0.0355 |
+| binary_hash | matched_ber | -2.0000 | 0.8042 | 0.1305 | 0.1306 |
+| binary_hash | matched_ber | 0.0000 | 0.8636 | 0.0783 | 0.0786 |
+| binary_hash | matched_ber | 2.0000 | 0.8951 | 0.0374 | 0.0375 |
+| binary_hash | matched_ber | 4.0000 | 0.9127 | 0.0124 | 0.0125 |
+| binary_hash | matched_ber | 6.0000 | 0.9207 | 0.0024 | 0.0024 |
+| binary_hash | matched_ber | 8.0000 | 0.9218 | 0.0002 | 0.0002 |
+| binary_hash | qpsk_awgn | -2.0000 | 0.8172 | 0.1304 | 0.1306 |
+| binary_hash | qpsk_awgn | 0.0000 | 0.8652 | 0.0784 | 0.0786 |
+| binary_hash | qpsk_awgn | 2.0000 | 0.8962 | 0.0375 | 0.0375 |
+| binary_hash | qpsk_awgn | 4.0000 | 0.9149 | 0.0123 | 0.0125 |
+| binary_hash | qpsk_awgn | 6.0000 | 0.9199 | 0.0023 | 0.0024 |
+| binary_hash | qpsk_awgn | 8.0000 | 0.9216 | 0.0002 | 0.0002 |
+| pca | bpsk_awgn | -2.0000 | 0.1566 | 0.1301 | 0.1306 |
+| pca | bpsk_awgn | 0.0000 | 0.1756 | 0.0781 | 0.0786 |
+| pca | bpsk_awgn | 2.0000 | 0.1952 | 0.0372 | 0.0375 |
+| pca | bpsk_awgn | 4.0000 | 0.2773 | 0.0123 | 0.0125 |
+| pca | bpsk_awgn | 6.0000 | 0.5769 | 0.0023 | 0.0024 |
+| pca | bpsk_awgn | 8.0000 | 0.7390 | 0.0002 | 0.0002 |
+| pca | bpsk_rayleigh_block | -2.0000 | 0.1679 | 0.1891 | 0.1890 |
+| pca | bpsk_rayleigh_block | 0.0000 | 0.1707 | 0.1467 | 0.1464 |
+| pca | bpsk_rayleigh_block | 2.0000 | 0.1834 | 0.1090 | 0.1085 |
+| pca | bpsk_rayleigh_block | 4.0000 | 0.1867 | 0.0778 | 0.0771 |
+| pca | bpsk_rayleigh_block | 6.0000 | 0.1914 | 0.0539 | 0.0530 |
+| pca | bpsk_rayleigh_block | 8.0000 | 0.1950 | 0.0363 | 0.0355 |
+| pca | matched_ber | -2.0000 | 0.1638 | 0.1305 | 0.1306 |
+| pca | matched_ber | 0.0000 | 0.1754 | 0.0783 | 0.0786 |
+| pca | matched_ber | 2.0000 | 0.2010 | 0.0374 | 0.0375 |
+| pca | matched_ber | 4.0000 | 0.2831 | 0.0124 | 0.0125 |
+| pca | matched_ber | 6.0000 | 0.5929 | 0.0024 | 0.0024 |
+| pca | matched_ber | 8.0000 | 0.7387 | 0.0002 | 0.0002 |
+| pca | qpsk_awgn | -2.0000 | 0.1646 | 0.1303 | 0.1306 |
+| pca | qpsk_awgn | 0.0000 | 0.1707 | 0.0784 | 0.0786 |
+| pca | qpsk_awgn | 2.0000 | 0.1820 | 0.0374 | 0.0375 |
+| pca | qpsk_awgn | 4.0000 | 0.2767 | 0.0123 | 0.0125 |
+| pca | qpsk_awgn | 6.0000 | 0.5880 | 0.0023 | 0.0024 |
+| pca | qpsk_awgn | 8.0000 | 0.7376 | 0.0002 | 0.0002 |
+| pure_hdc | bpsk_awgn | -2.0000 | 0.7266 | 0.1303 | 0.1306 |
+| pure_hdc | bpsk_awgn | 0.0000 | 0.7280 | 0.0785 | 0.0786 |
+| pure_hdc | bpsk_awgn | 2.0000 | 0.7266 | 0.0372 | 0.0375 |
+| pure_hdc | bpsk_awgn | 4.0000 | 0.7271 | 0.0124 | 0.0125 |
+| pure_hdc | bpsk_awgn | 6.0000 | 0.7305 | 0.0024 | 0.0024 |
+| pure_hdc | bpsk_awgn | 8.0000 | 0.7316 | 0.0002 | 0.0002 |
+| pure_hdc | bpsk_rayleigh_block | -2.0000 | 0.7266 | 0.1896 | 0.1890 |
+| pure_hdc | bpsk_rayleigh_block | 0.0000 | 0.7288 | 0.1471 | 0.1464 |
+| pure_hdc | bpsk_rayleigh_block | 2.0000 | 0.7327 | 0.1092 | 0.1085 |
+| pure_hdc | bpsk_rayleigh_block | 4.0000 | 0.7318 | 0.0777 | 0.0771 |
+| pure_hdc | bpsk_rayleigh_block | 6.0000 | 0.7321 | 0.0536 | 0.0530 |
+| pure_hdc | bpsk_rayleigh_block | 8.0000 | 0.7324 | 0.0360 | 0.0355 |
+| pure_hdc | matched_ber | -2.0000 | 0.7296 | 0.1305 | 0.1306 |
+| pure_hdc | matched_ber | 0.0000 | 0.7288 | 0.0783 | 0.0786 |
+| pure_hdc | matched_ber | 2.0000 | 0.7288 | 0.0374 | 0.0375 |
+| pure_hdc | matched_ber | 4.0000 | 0.7296 | 0.0124 | 0.0125 |
+| pure_hdc | matched_ber | 6.0000 | 0.7294 | 0.0024 | 0.0024 |
+| pure_hdc | matched_ber | 8.0000 | 0.7307 | 0.0002 | 0.0002 |
+| pure_hdc | qpsk_awgn | -2.0000 | 0.7313 | 0.1309 | 0.1306 |
+| pure_hdc | qpsk_awgn | 0.0000 | 0.7299 | 0.0787 | 0.0786 |
+| pure_hdc | qpsk_awgn | 2.0000 | 0.7285 | 0.0375 | 0.0375 |
+| pure_hdc | qpsk_awgn | 4.0000 | 0.7294 | 0.0123 | 0.0125 |
+| pure_hdc | qpsk_awgn | 6.0000 | 0.7299 | 0.0023 | 0.0024 |
+| pure_hdc | qpsk_awgn | 8.0000 | 0.7307 | 0.0002 | 0.0002 |
+| quantized | bpsk_awgn | -2.0000 | 0.2541 | 0.1318 | 0.1306 |
+| quantized | bpsk_awgn | 0.0000 | 0.3115 | 0.0793 | 0.0786 |
+| quantized | bpsk_awgn | 2.0000 | 0.4096 | 0.0378 | 0.0375 |
+| quantized | bpsk_awgn | 4.0000 | 0.5510 | 0.0126 | 0.0125 |
+| quantized | bpsk_awgn | 6.0000 | 0.6877 | 0.0023 | 0.0024 |
+| quantized | bpsk_awgn | 8.0000 | 0.7390 | 0.0002 | 0.0002 |
+| quantized | bpsk_rayleigh_block | -2.0000 | 0.2428 | 0.1866 | 0.1890 |
+| quantized | bpsk_rayleigh_block | 0.0000 | 0.2657 | 0.1442 | 0.1464 |
+| quantized | bpsk_rayleigh_block | 2.0000 | 0.2947 | 0.1063 | 0.1085 |
+| quantized | bpsk_rayleigh_block | 4.0000 | 0.3510 | 0.0753 | 0.0771 |
+| quantized | bpsk_rayleigh_block | 6.0000 | 0.3891 | 0.0517 | 0.0530 |
+| quantized | bpsk_rayleigh_block | 8.0000 | 0.4557 | 0.0345 | 0.0355 |
+| quantized | matched_ber | -2.0000 | 0.2552 | 0.1307 | 0.1306 |
+| quantized | matched_ber | 0.0000 | 0.3259 | 0.0786 | 0.0786 |
+| quantized | matched_ber | 2.0000 | 0.4275 | 0.0373 | 0.0375 |
+| quantized | matched_ber | 4.0000 | 0.5413 | 0.0121 | 0.0125 |
+| quantized | matched_ber | 6.0000 | 0.6877 | 0.0023 | 0.0024 |
+| quantized | matched_ber | 8.0000 | 0.7426 | 0.0002 | 0.0002 |
+| quantized | qpsk_awgn | -2.0000 | 0.2648 | 0.1316 | 0.1306 |
+| quantized | qpsk_awgn | 0.0000 | 0.3259 | 0.0790 | 0.0786 |
+| quantized | qpsk_awgn | 2.0000 | 0.4178 | 0.0376 | 0.0375 |
+| quantized | qpsk_awgn | 4.0000 | 0.5540 | 0.0124 | 0.0125 |
+| quantized | qpsk_awgn | 6.0000 | 0.6780 | 0.0024 | 0.0024 |
+| quantized | qpsk_awgn | 8.0000 | 0.7387 | 0.0002 | 0.0002 |
+
+
+Figure: `results/figures/accuracy_radio_snr.png`.
+
+On this dataset, holographic HDC stays near its clean accuracy even when block Rayleigh drives empirical BER above 0.1. Binary hashing degrades slowly. 8-bit PCM and PCA still collapse. BPSK AWGN and `matched_ber` agree, so the abstract coin-flip did not overstate HDC here — the remaining gap is still clean-channel accuracy versus hashing, not a hidden radio-structure failure.

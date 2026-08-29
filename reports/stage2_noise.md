@@ -98,3 +98,38 @@ Figure: `results/figures/accuracy_burst.png`. Interleaving permutes bits with a 
 | quantized | 0.4000 | 0.4224 | 0.0090 | 0.3828 | 0.0133 |
 
 Figure: `results/figures/accuracy_packet_loss.png`.
+
+## Packet loss + bit interleaving
+
+| method | packet_loss_rate | interleave | accuracy_mean | accuracy_std |
+| --- | --- | --- | --- | --- |
+| binary_hash | 0.0000 | False | 0.9216 | 0.0058 |
+| binary_hash | 0.1000 | False | 0.8868 | 0.0070 |
+| binary_hash | 0.1000 | True | 0.8835 | 0.0083 |
+| binary_hash | 0.2000 | False | 0.8337 | 0.0069 |
+| binary_hash | 0.2000 | True | 0.8484 | 0.0147 |
+| binary_hash | 0.4000 | False | 0.7412 | 0.0213 |
+| binary_hash | 0.4000 | True | 0.7633 | 0.0229 |
+| pca | 0.0000 | False | 0.7548 | 0.0000 |
+| pca | 0.1000 | False | 0.6849 | 0.0124 |
+| pca | 0.1000 | True | 0.5998 | 0.0185 |
+| pca | 0.2000 | False | 0.6239 | 0.0057 |
+| pca | 0.2000 | True | 0.4844 | 0.0199 |
+| pca | 0.4000 | False | 0.5090 | 0.0091 |
+| pca | 0.4000 | True | 0.3005 | 0.0161 |
+| pure_hdc | 0.0000 | False | 0.7313 | 0.0017 |
+| pure_hdc | 0.1000 | False | 0.7324 | 0.0029 |
+| pure_hdc | 0.1000 | True | 0.7299 | 0.0014 |
+| pure_hdc | 0.2000 | False | 0.7296 | 0.0053 |
+| pure_hdc | 0.2000 | True | 0.7291 | 0.0038 |
+| pure_hdc | 0.4000 | False | 0.7280 | 0.0110 |
+| pure_hdc | 0.4000 | True | 0.7305 | 0.0093 |
+| quantized | 0.0000 | False | 0.7473 | 0.0000 |
+| quantized | 0.1000 | False | 0.6647 | 0.0085 |
+| quantized | 0.1000 | True | 0.5438 | 0.0211 |
+| quantized | 0.2000 | False | 0.5866 | 0.0155 |
+| quantized | 0.2000 | True | 0.4115 | 0.0440 |
+| quantized | 0.4000 | False | 0.4217 | 0.0050 |
+| quantized | 0.4000 | True | 0.2389 | 0.0481 |
+
+Figure: `results/figures/accuracy_packet_interleave.png`. Bits are permuted with a shared seed, packets are dropped, then the permutation is inverted. A lost packet therefore punches scattered holes instead of one contiguous zero block.
