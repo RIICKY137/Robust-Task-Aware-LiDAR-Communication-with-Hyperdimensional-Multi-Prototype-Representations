@@ -55,3 +55,5 @@ The transmitted payload is still one bipolar hypervector per scan (`P_i ⊗ L_Q(
 
 
 Figure: `results/figures/accuracy_multicentroid_ber.png` (in-distribution).
+
+Reading: if raising k lifts in-distribution accuracy toward the linear head while staying BER-flat, the 0.73 ceiling was unimodal prototypes, not a weak code. OOD (`test_ood`) is the check that extra centroids did not just memorize the training building. Few-shot updates still add to the nearest centroid.

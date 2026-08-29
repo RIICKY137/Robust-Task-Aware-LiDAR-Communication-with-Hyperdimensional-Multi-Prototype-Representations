@@ -216,32 +216,75 @@ See `reports/stage5_hybrid_lidar.md`. Full-scan frontend ± record bundle, proto
 
 See `reports/multicentroid.md`. Same `P⊗L` payload; k prototypes per class vs a linear head.
 
-| method_label | ber | accuracy |
-| --- | --- | --- |
-| binary_hash | 0.0000 | 0.7722 |
-| binary_hash | 0.0100 | 0.7651 |
-| binary_hash | 0.0500 | 0.7450 |
-| binary_hash | 0.1000 | 0.7096 |
-| pure_hdc_D4096 | 0.0000 | 0.7213 |
-| pure_hdc_D4096 | 0.0100 | 0.7218 |
-| pure_hdc_D4096 | 0.0500 | 0.7199 |
-| pure_hdc_D4096 | 0.1000 | 0.7174 |
-| pure_hdc_D4096+lin | 0.0000 | 0.8953 |
-| pure_hdc_D4096+lin | 0.0100 | 0.8943 |
-| pure_hdc_D4096+lin | 0.0500 | 0.8878 |
-| pure_hdc_D4096+lin | 0.1000 | 0.8770 |
-| pure_hdc_D4096/k16 | 0.0000 | 0.9049 |
-| pure_hdc_D4096/k16 | 0.0100 | 0.9056 |
-| pure_hdc_D4096/k16 | 0.0500 | 0.9043 |
-| pure_hdc_D4096/k16 | 0.1000 | 0.9020 |
-| pure_hdc_D4096/k4 | 0.0000 | 0.8218 |
-| pure_hdc_D4096/k4 | 0.0100 | 0.8207 |
-| pure_hdc_D4096/k4 | 0.0500 | 0.8230 |
-| pure_hdc_D4096/k4 | 0.1000 | 0.8201 |
-| pure_hdc_D4096/k8 | 0.0000 | 0.8669 |
-| pure_hdc_D4096/k8 | 0.0100 | 0.8666 |
-| pure_hdc_D4096/k8 | 0.0500 | 0.8685 |
-| pure_hdc_D4096/k8 | 0.1000 | 0.8661 |
+| split | method_label | ber | accuracy |
+| --- | --- | --- | --- |
+| test_id | binary_hash | 0.0000 | 0.9216 |
+| test_id | binary_hash | 0.0100 | 0.9149 |
+| test_id | binary_hash | 0.0500 | 0.8837 |
+| test_id | binary_hash | 0.1000 | 0.8398 |
+| test_id | pure_hdc_D4096 | 0.0000 | 0.7313 |
+| test_id | pure_hdc_D4096 | 0.0100 | 0.7302 |
+| test_id | pure_hdc_D4096 | 0.0500 | 0.7294 |
+| test_id | pure_hdc_D4096 | 0.1000 | 0.7285 |
+| test_id | pure_hdc_D4096+lin | 0.0000 | 0.9738 |
+| test_id | pure_hdc_D4096+lin | 0.0100 | 0.9732 |
+| test_id | pure_hdc_D4096+lin | 0.0500 | 0.9680 |
+| test_id | pure_hdc_D4096+lin | 0.1000 | 0.9564 |
+| test_id | pure_hdc_D4096/k16 | 0.0000 | 0.9597 |
+| test_id | pure_hdc_D4096/k16 | 0.0100 | 0.9605 |
+| test_id | pure_hdc_D4096/k16 | 0.0500 | 0.9589 |
+| test_id | pure_hdc_D4096/k16 | 0.1000 | 0.9577 |
+| test_id | pure_hdc_D4096/k4 | 0.0000 | 0.8691 |
+| test_id | pure_hdc_D4096/k4 | 0.0100 | 0.8688 |
+| test_id | pure_hdc_D4096/k4 | 0.0500 | 0.8716 |
+| test_id | pure_hdc_D4096/k4 | 0.1000 | 0.8719 |
+| test_id | pure_hdc_D4096/k8 | 0.0000 | 0.9171 |
+| test_id | pure_hdc_D4096/k8 | 0.0100 | 0.9180 |
+| test_id | pure_hdc_D4096/k8 | 0.0500 | 0.9185 |
+| test_id | pure_hdc_D4096/k8 | 0.1000 | 0.9155 |
+| test_ood | binary_hash | 0.0000 | 0.6228 |
+| test_ood | binary_hash | 0.0100 | 0.6153 |
+| test_ood | binary_hash | 0.0500 | 0.6062 |
+| test_ood | binary_hash | 0.1000 | 0.5794 |
+| test_ood | pure_hdc_D4096 | 0.0000 | 0.7114 |
+| test_ood | pure_hdc_D4096 | 0.0100 | 0.7133 |
+| test_ood | pure_hdc_D4096 | 0.0500 | 0.7104 |
+| test_ood | pure_hdc_D4096 | 0.1000 | 0.7062 |
+| test_ood | pure_hdc_D4096+lin | 0.0000 | 0.8169 |
+| test_ood | pure_hdc_D4096+lin | 0.0100 | 0.8153 |
+| test_ood | pure_hdc_D4096+lin | 0.0500 | 0.8076 |
+| test_ood | pure_hdc_D4096+lin | 0.1000 | 0.7976 |
+| test_ood | pure_hdc_D4096/k16 | 0.0000 | 0.8502 |
+| test_ood | pure_hdc_D4096/k16 | 0.0100 | 0.8508 |
+| test_ood | pure_hdc_D4096/k16 | 0.0500 | 0.8498 |
+| test_ood | pure_hdc_D4096/k16 | 0.1000 | 0.8462 |
+| test_ood | pure_hdc_D4096/k4 | 0.0000 | 0.7746 |
+| test_ood | pure_hdc_D4096/k4 | 0.0100 | 0.7726 |
+| test_ood | pure_hdc_D4096/k4 | 0.0500 | 0.7744 |
+| test_ood | pure_hdc_D4096/k4 | 0.1000 | 0.7683 |
+| test_ood | pure_hdc_D4096/k8 | 0.0000 | 0.8167 |
+| test_ood | pure_hdc_D4096/k8 | 0.0100 | 0.8153 |
+| test_ood | pure_hdc_D4096/k8 | 0.0500 | 0.8185 |
+| test_ood | pure_hdc_D4096/k8 | 0.1000 | 0.8167 |
+
+## Few-shot multi-centroid adaptation
+
+See `reports/stage4_multicentroid_adapt.md`. OOD shots update the nearest centroid (or refit the linear head).
+
+| method | shots_per_class | new_acc | old_acc | forgetting | adapt_ms |
+| --- | --- | --- | --- | --- | --- |
+| hdc_k1 | 10 | 0.7202 | 0.7302 | 0.0011 | 11.1975 |
+| hdc_k1 | 50 | 0.7354 | 0.7277 | 0.0036 | 88.1252 |
+| hdc_k1 | 100 | 0.7608 | 0.7247 | 0.0066 | 156.9646 |
+| hdc_k16 | 10 | 0.8643 | 0.9586 | 0.0011 | 34.9867 |
+| hdc_k16 | 50 | 0.8980 | 0.9575 | 0.0022 | 186.9678 |
+| hdc_k16 | 100 | 0.9205 | 0.9561 | 0.0036 | 344.6755 |
+| hdc_k8 | 10 | 0.8287 | 0.9174 | -0.0003 | 21.5726 |
+| hdc_k8 | 50 | 0.8708 | 0.9136 | 0.0036 | 119.6395 |
+| hdc_k8 | 100 | 0.8931 | 0.9089 | 0.0083 | 222.0537 |
+| hdc_linear | 10 | 0.8309 | 0.9751 | -0.0014 | 6438.0719 |
+| hdc_linear | 50 | 0.8862 | 0.9713 | 0.0025 | 5499.7658 |
+| hdc_linear | 100 | 0.9268 | 0.9671 | 0.0066 | 7755.2710 |
 
 ## Realistic radio (Stage 8)
 
@@ -357,7 +400,7 @@ See `reports/stage8_radio.md`. Uncoded BPSK/QPSK hard decisions vs matched i.i.d
 | Sensor dropout / scale | See Stage 3; not billed as communication noise |
 | Few-shot OOD | HDC updates are milliseconds vs seconds for a linear refit |
 | Hybrid encoder | Prototype head ~0.73–0.80; linear head on HDC codes can match/beat hashing |
-| Multi-centroid | See `reports/multicentroid.md` — does k>1 close the prototype gap without logistic? |
+| Multi-centroid | k>1 lifts prototype accuracy while staying BER-flat; see OOD vs linear in the table |
 
 Configs in `configs/`. Frozen splits in `data/splits/sim_indoor_v1/`.
 
