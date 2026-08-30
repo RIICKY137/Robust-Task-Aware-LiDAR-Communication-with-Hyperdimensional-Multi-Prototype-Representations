@@ -1318,12 +1318,43 @@ def _plot_k16_semantic2d(df: pd.DataFrame, fig: Path) -> None:
 
 
 def _write_k16_semantic2d(df: pd.DataFrame, path: Path) -> None:
+    hue = "method_label" if "method_label" in df.columns else "method"
+
+    def acc(split: str, tag: str, ber: float) -> float | None:
+        sub = df[(df["split"] == split) & (df[hue] == tag) & (df["ber"] == ber)]
+        if sub.empty:
+            return None
+        return float(sub["accuracy"].mean())
+
+    def fmt(x: float | None) -> str:
+        return "n/a" if x is None else f"{x:.3f}"
+
     g = (
-        df.groupby(["split", "method_label", "ber"])[["accuracy", "macro_f1"]]
+        df.groupby(["split", hue, "ber"])[["accuracy", "macro_f1"]]
         .mean()
         .reset_index()
         .round(4)
     )
+    id0 = {
+        "k16": acc("test_id", "hdc_k16", 0.0),
+        "k1": acc("test_id", "hdc_k1", 0.0),
+        "lin": acc("test_id", "hdc_linear", 0.0),
+        "hash": acc("test_id", "binary_hash", 0.0),
+        "pcm": acc("test_id", "quantized", 0.0),
+    }
+    id10 = {
+        "k16": acc("test_id", "hdc_k16", 0.10),
+        "lin": acc("test_id", "hdc_linear", 0.10),
+        "pcm": acc("test_id", "quantized", 0.10),
+        "hash": acc("test_id", "binary_hash", 0.10),
+    }
+    ood0 = {
+        "k16": acc("test_ood", "hdc_k16", 0.0),
+        "hash": acc("test_ood", "binary_hash", 0.0),
+        "lin": acc("test_ood", "hdc_linear", 0.0),
+        "k1": acc("test_ood", "hdc_k1", 0.0),
+        "pcm": acc("test_ood", "quantized", 0.0),
+    }
     path.write_text(
         "\n".join(
             [
@@ -1334,6 +1365,9 @@ def _write_k16_semantic2d(df: pd.DataFrame, path: Path) -> None:
                 "(door / furniture), not author-annotated corridor/room tags. Invalid beams "
                 "are NaN; HDC uses `skip`. First-round `sim_indoor_v1` JSONL is unchanged.",
                 "",
+                "8265 scans (stride 10), 180 beams, 270° FOV. OOD environments: lobby + eng_9th. "
+                "Class mix is uneven (room 38%, doorway 32%, cluttered 20%, corridor 6%, open 4%).",
+                "",
                 "Means over seeds:",
                 "",
                 _md_table(g),
@@ -1343,8 +1377,26 @@ def _write_k16_semantic2d(df: pd.DataFrame, path: Path) -> None:
                 "",
                 "## Reading",
                 "",
-                "The question is whether the 128 B k=16 operating region survives a real "
-                "planar scan (resampled to 180 beams) and a building-held-out split.",
+                "The question is whether the 128 B k=16 operating region from `sim_indoor_v1` "
+                "(~0.95 ID, BER-flat through 0.10) survives a real planar scan and a building holdout.",
+                "",
+                f"- **Clean ID:** k=16 {fmt(id0['k16'])}, linear {fmt(id0['lin'])}, hashing "
+                f"{fmt(id0['hash'])}, k=1 {fmt(id0['k1'])}, 8-bit PCM {fmt(id0['pcm'])}. "
+                "k=16 is the best of this set. Absolute accuracy is far below the simulator; "
+                "the ~0.95 region does **not** transfer. It is still a lift over the test_id "
+                "majority class (room, 35%).",
+                f"- **BER = 0.10, ID:** k=16 {fmt(id10['k16'])} (flat), hashing {fmt(id10['hash'])}, "
+                f"linear {fmt(id10['lin'])} (drops), PCM {fmt(id10['pcm'])} (cliffs). "
+                "The holographic-vs-not pattern is the same as on sim, at a lower ceiling. "
+                "Linear still failed to converge in 600 LBFGS steps.",
+                f"- **Clean OOD (lobby + 9th floor):** k=16 {fmt(ood0['k16'])}, hashing "
+                f"{fmt(ood0['hash'])}, linear {fmt(ood0['lin'])}, k=1 {fmt(ood0['k1'])}, "
+                f"PCM {fmt(ood0['pcm'])}. This is a near-majority scramble (OOD room share 32%). "
+                "Do not read it as the indoor-sim OOD gap transferring.",
+                "",
+                "Takeaway: k=16 remains the method that is both strongest on ID and BER-flat "
+                "at 128 B, but real scans with derived place tags are a harder task and the "
+                "building holdout is not solved. Hardware OTA is still blocked on this VM.",
                 "",
             ]
         ),
@@ -1638,11 +1690,11 @@ def _write_final(
         "| Burst / packet loss | k=16 holds 128-bit bursts and 20% packet loss at 128 B; a 512-bit burst (half the code) is a failure region |",
         "| Uncoded radio | k=16 stays flat at 128 B under BPSK-AWGN and block Rayleigh; matched BER tracks AWGN. Linear is hurt by clustered fades. |",
         "| Sensor dropout / scale | k=16 holds random beam drop. 30% sector drop with max-range fill is a fake opening (~0.39 ID). Skip/DROP recover ~0.90 ID / ~0.70–0.75 OOD. |",
-        "| Real 2D LiDAR | Semantic2D remake at 128 B: `reports/stage0_semantic2d.md`. Labels are derived, not author place tags. |",
+        "| Real 2D LiDAR | Semantic2D 128 B: k=16 ID ~0.50 and BER-flat, **not** the sim ~0.95. OOD is near majority. Labels are derived. |",
         "| Hybrid encoder | Prototype head ~0.73–0.80; linear head on HDC codes can match/beat hashing |",
         "| Multi-centroid | k>1 lifts prototype accuracy while staying BER-flat; see OOD vs linear in the table |",
         "",
-        "Configs in `configs/`. Frozen splits in `data/splits/sim_indoor_v1/`.",
+        "Configs in `configs/`. Frozen splits in `data/splits/sim_indoor_v1/` and `data/splits/semantic2d_v1/`.",
         "",
     ]
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
