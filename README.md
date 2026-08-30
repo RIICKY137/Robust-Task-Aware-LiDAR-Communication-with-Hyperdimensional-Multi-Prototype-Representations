@@ -78,6 +78,9 @@ python scripts/run_hybrid_lidar.py
 python scripts/run_radio_sweep.py
 python scripts/run_packet_interleave_sweep.py
 
+# Stage 8 remake — k=16 at 128 B (BPSK AWGN / block Rayleigh / matched BER)
+python scripts/run_k16_radio.py
+
 # Figures + markdown from raw JSONL (never hand-edit the curves)
 python scripts/aggregate_results.py
 ```

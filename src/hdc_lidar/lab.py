@@ -340,12 +340,25 @@ def _results() -> None:
         _chart(burst, "burst_length", "accuracy", "curve", "Accuracy vs burst length")
         _chart(plr, "packet_loss_rate", "accuracy", "curve", "Accuracy vs packet loss")
     if "snr_db" in clean.columns:
-        radio = clean[pd.to_numeric(clean["snr_db"], errors="coerce").notna()]
-        color = "channel_kind" if "channel_kind" in radio.columns else "method"
+        radio = clean[pd.to_numeric(clean["snr_db"], errors="coerce").notna()].copy()
         if not radio.empty:
-            _chart(radio, "snr_db", "accuracy", "method", "Accuracy vs Eb/N0 (radio)")
-            if color == "channel_kind":
-                _chart(radio, "snr_db", "accuracy", "channel_kind", "Radio kinds vs Eb/N0")
+            kind = (
+                radio["channel_kind"].astype(str)
+                if "channel_kind" in radio.columns
+                else "radio"
+            )
+            radio["curve_r"] = radio["curve"].astype(str) + " / " + kind
+            if "budget_bytes" in radio.columns:
+                radio["curve_r"] = (
+                    radio["curve_r"]
+                    + " / "
+                    + pd.to_numeric(radio["budget_bytes"], errors="coerce")
+                    .fillna(0)
+                    .astype(int)
+                    .astype(str)
+                    + "B"
+                )
+            _chart(radio, "snr_db", "accuracy", "curve_r", "Accuracy vs Eb/N0 (radio)")
 
 
 if __name__ == "__main__":

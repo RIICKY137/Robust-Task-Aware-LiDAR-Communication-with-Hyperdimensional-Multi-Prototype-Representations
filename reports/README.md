@@ -15,6 +15,7 @@ Generated files:
 - `stage4_multicentroid_adapt.md` — k=1/8/16 vs linear head, 10/50/100-shot OOD
 - `multicentroid.md` — k prototypes per class vs linear head
 - `stage8_radio.md` — uncoded BPSK/QPSK vs matched BER
+- `stage8_k16_radio.md` — k=16 remake at 128 B (BPSK AWGN / block Rayleigh / matched BER)
 - `final_report.md` — working-region summary for RQ1–RQ3
 
 Do not draw publication figures by hand. Re-run `aggregate_results.py` from `results/raw/*.jsonl`.

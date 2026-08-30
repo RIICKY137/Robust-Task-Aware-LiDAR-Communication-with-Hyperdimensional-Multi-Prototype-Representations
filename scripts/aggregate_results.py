@@ -83,6 +83,7 @@ def main() -> None:
     k16_bw = load_jsonl(raw / "k16_bandwidth.jsonl")
     k16_sensor = load_jsonl(raw / "k16_sensor.jsonl")
     k16_noise = load_jsonl(raw / "k16_noise.jsonl")
+    k16_radio = load_jsonl(raw / "k16_radio.jsonl")
 
     if not bw.empty:
         bw = bw.copy()
@@ -307,6 +308,15 @@ def main() -> None:
         _plot_k16_noise(k16_noise, fig)
         _write_k16_noise(k16_noise, reports / "stage2_k16_noise.md")
 
+    if not k16_radio.empty:
+        k16_radio = k16_radio.copy()
+        k16_radio["method_label"] = (
+            k16_radio["method_tag"] if "method_tag" in k16_radio.columns else method_label(k16_radio)
+        )
+        k16_radio.to_csv(tables / "k16_radio.csv", index=False)
+        _plot_k16_radio(k16_radio, fig)
+        _write_k16_radio(k16_radio, reports / "stage8_k16_radio.md")
+
     _write_final(
         bw,
         noise,
@@ -324,6 +334,7 @@ def main() -> None:
         k16_bw=k16_bw,
         k16_sensor=k16_sensor,
         k16_noise=k16_noise,
+        k16_radio=k16_radio,
     )
     print("reports updated")
 
@@ -1003,6 +1014,83 @@ def _write_k16_noise(df: pd.DataFrame, path: Path) -> None:
     path.write_text("\n".join(parts), encoding="utf-8")
 
 
+def _plot_k16_radio(df: pd.DataFrame, fig: Path) -> None:
+    id_ = df[df["split"] == "test_id"] if "split" in df.columns else df
+    sub128 = id_[id_["budget_bytes"] == 128] if "budget_bytes" in id_.columns else id_
+    for kind, title, fname in (
+        ("bpsk_awgn", "k=16 vs BPSK-AWGN (128 B, test_id)", "accuracy_k16_radio_128_awgn.png"),
+        (
+            "bpsk_rayleigh_block",
+            "k=16 vs BPSK block Rayleigh (128 B, test_id)",
+            "accuracy_k16_radio_128_rayleigh.png",
+        ),
+        ("matched_ber", "k=16 vs matched i.i.d. BER (128 B, test_id)", "accuracy_k16_radio_128_matched.png"),
+    ):
+        sub = sub128[sub128["channel_kind"].astype(str) == kind] if "channel_kind" in sub128.columns else sub128
+        if sub.empty:
+            continue
+        plot_metric_curves(
+            sub,
+            x="snr_db",
+            y="accuracy",
+            hue="method_label",
+            title=title,
+            path=fig / fname,
+            xlabel="Eb/N0 (dB)",
+            ylabel="Accuracy",
+        )
+    k16 = sub128[sub128["method_label"].astype(str) == "hdc_k16"]
+    if not k16.empty and "channel_kind" in k16.columns:
+        plot_metric_curves(
+            k16,
+            x="snr_db",
+            y="accuracy",
+            hue="channel_kind",
+            title="k=16: radio structure vs matched BER (128 B, test_id)",
+            path=fig / "accuracy_k16_radio_128_kinds.png",
+            xlabel="Eb/N0 (dB)",
+            ylabel="Accuracy",
+        )
+
+
+def _write_k16_radio(df: pd.DataFrame, path: Path) -> None:
+    cols = [c for c in ["accuracy", "empirical_ber", "theory_ber"] if c in df.columns]
+    g = (
+        df.groupby(["split", "method_label", "budget_bytes", "channel_kind", "snr_db"], dropna=False)[cols]
+        .mean()
+        .reset_index()
+        .round(4)
+    )
+    path.write_text(
+        "\n".join(
+            [
+                "# Stage 8 remake — k=16 HDC on uncoded radio",
+                "",
+                "Eb/N0 is the physical-layer SNR. BPSK uses hard decisions. "
+                "`matched_ber` flips bits i.i.d. at the closed-form uncoded BPSK-AWGN BER. "
+                "Block Rayleigh (32-symbol coherence) clusters errors. "
+                "128 B → `D=1024`; 512 B is the control. First-round `radio_sweep.jsonl` is unchanged.",
+                "",
+                "Means over seeds:",
+                "",
+                _md_table(g),
+                "",
+                "Figures: `results/figures/accuracy_k16_radio_128_awgn.png`, "
+                "`results/figures/accuracy_k16_radio_128_rayleigh.png`, "
+                "`results/figures/accuracy_k16_radio_128_matched.png`, "
+                "`results/figures/accuracy_k16_radio_128_kinds.png`.",
+                "",
+                "## Reading",
+                "",
+                "See the tables. The question is whether i.i.d. BER overstated k=16 at 128 B "
+                "once errors come from BPSK-AWGN or block Rayleigh instead of a coin-flip.",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+
 def _write_final(
     bw: pd.DataFrame,
     noise: pd.DataFrame,
@@ -1020,6 +1108,7 @@ def _write_final(
     k16_bw: pd.DataFrame | None = None,
     k16_sensor: pd.DataFrame | None = None,
     k16_noise: pd.DataFrame | None = None,
+    k16_radio: pd.DataFrame | None = None,
 ) -> None:
     lines = [
         "# Working region of HDC for task-aware LiDAR communication",
@@ -1200,6 +1289,21 @@ def _write_final(
             .round(4)
         )
         lines += [_md_table(gb)]
+    if k16_radio is not None and not k16_radio.empty:
+        lines += [
+            "## k=16 uncoded-radio remake",
+            "",
+            "See `reports/stage8_k16_radio.md`. BPSK-AWGN, block Rayleigh, and matched BER at 128 B and 512 B.",
+            "",
+        ]
+        hue = "method_label" if "method_label" in k16_radio.columns else "method"
+        gr = (
+            k16_radio.groupby(["split", hue, "budget_bytes", "channel_kind", "snr_db"])["accuracy"]
+            .mean()
+            .reset_index()
+            .round(4)
+        )
+        lines += [_md_table(gr)]
     if radio is not None and not radio.empty:
         lines += [
             "## Realistic radio (Stage 8)",
@@ -1222,7 +1326,7 @@ def _write_final(
         "| Clean 2D scan | k=1 prototype loses to hashing; k=16 / linear close that gap. See k=16 bandwidth remake. |",
         "| Random BER | k=16 stays flat at 128 B (~0.95). Linear head is not holographic at that budget. PCM cliffs. |",
         "| Burst / packet loss | k=16 holds 128-bit bursts and 20% packet loss at 128 B; a 512-bit burst (half the code) is a failure region |",
-        "| Uncoded radio | Pure HDC stays flat under BPSK/QPSK AWGN and block Rayleigh; PCM/PCA still cliff. Matched i.i.d. BER tracks AWGN. |",
+        "| Uncoded radio | k=16 remake at 128 B: `reports/stage8_k16_radio.md`. First-round Stage 8 used k=1 at 512 B. |",
         "| Sensor dropout / scale | k=16 holds under random beam drop; 30% contiguous sector drop is a failure region. First-round Stage 3 used k=1. |",
         "| Few-shot OOD | HDC updates are milliseconds vs seconds for a linear refit |",
         "| Hybrid encoder | Prototype head ~0.73–0.80; linear head on HDC codes can match/beat hashing |",
