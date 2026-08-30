@@ -2,7 +2,7 @@
 
 Narrative milestone (not generated from JSONL):
 
-- `milestone_summary.md` — 阶段性总结：问题、协议、A/B/C/D、工作区与未验证项
+- `milestone_summary.md` — milestone write-up: protocol, A/B/C/D, operating region, unverified items
 
 Generated files:
 
