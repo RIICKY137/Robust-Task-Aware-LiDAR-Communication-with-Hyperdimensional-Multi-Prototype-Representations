@@ -408,6 +408,32 @@ def _results() -> None:
                 "curve",
                 "Random beam drop after encoder fix",
             )
+    if "sweep" in clean.columns and (clean["sweep"] == "k16_lidardataframes_sensor").any():
+        ldf = clean[clean["sweep"] == "k16_lidardataframes_sensor"]
+        sector_ldf = ldf[
+            ldf["sensor"].fillna("").astype(str).str.startswith("sector_drop")
+            | (ldf["sensor"].fillna("") == "clean")
+        ]
+        beam_ldf = ldf[
+            ldf["sensor"].fillna("").astype(str).str.startswith("beam_drop")
+            | (ldf["sensor"].fillna("") == "clean")
+        ]
+        if not sector_ldf.empty:
+            _chart(
+                sector_ldf,
+                "sensor",
+                "accuracy",
+                "curve",
+                "LidarDataFrames sector drop (128 B, skip / DROP / fill)",
+            )
+        if not beam_ldf.empty:
+            _chart(
+                beam_ldf,
+                "sensor",
+                "accuracy",
+                "curve",
+                "LidarDataFrames random beam drop (128 B)",
+            )
     if "sensor" in clean.columns:
         sensor_src = clean
         if "sweep" in clean.columns and (clean["sweep"] == "k16_sensor").any():

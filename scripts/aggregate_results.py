@@ -88,6 +88,7 @@ def main() -> None:
     k16_adapt_128 = load_jsonl(raw / "k16_adaptation_128b.jsonl")
     k16_semantic2d = load_jsonl(raw / "k16_semantic2d.jsonl")
     k16_lidardataframes = load_jsonl(raw / "k16_lidardataframes.jsonl")
+    k16_ldf_sensor = load_jsonl(raw / "k16_lidardataframes_sensor.jsonl")
 
     if not bw.empty:
         bw = bw.copy()
@@ -355,6 +356,18 @@ def main() -> None:
         k16_lidardataframes.to_csv(tables / "k16_lidardataframes.csv", index=False)
         _plot_k16_lidardataframes(k16_lidardataframes, fig)
         _write_k16_lidardataframes(k16_lidardataframes, reports / "stage0_lidardataframes.md")
+    if not k16_ldf_sensor.empty:
+        k16_ldf_sensor = k16_ldf_sensor.copy()
+        k16_ldf_sensor["method_label"] = (
+            k16_ldf_sensor["method_tag"]
+            if "method_tag" in k16_ldf_sensor.columns
+            else method_label(k16_ldf_sensor)
+        )
+        k16_ldf_sensor.to_csv(tables / "k16_lidardataframes_sensor.csv", index=False)
+        _plot_k16_lidardataframes_sensor(k16_ldf_sensor, fig)
+        _write_k16_lidardataframes_sensor(
+            k16_ldf_sensor, reports / "stage3_k16_lidardataframes_sensor.md"
+        )
 
     _write_final(
         bw,
@@ -378,6 +391,7 @@ def main() -> None:
         k16_adapt_128=k16_adapt_128,
         k16_semantic2d=k16_semantic2d,
         k16_lidardataframes=k16_lidardataframes,
+        k16_ldf_sensor=k16_ldf_sensor,
     )
     print("reports updated")
 
@@ -1521,6 +1535,115 @@ def _write_k16_lidardataframes(df: pd.DataFrame, path: Path) -> None:
     )
 
 
+def _plot_k16_lidardataframes_sensor(df: pd.DataFrame, fig: Path) -> None:
+    id_ = df[df["split"] == "test_id"] if "split" in df.columns else df
+    for kind, title, fname in (
+        (
+            "beam",
+            "LidarDataFrames: beam dropout vs accuracy (128 B, test_id, BER = 0)",
+            "accuracy_k16_lidardataframes_beam_drop.png",
+        ),
+        (
+            "sector",
+            "LidarDataFrames: sector dropout vs accuracy (128 B, test_id, BER = 0)",
+            "accuracy_k16_lidardataframes_sector_drop.png",
+        ),
+    ):
+        rows = []
+        for _, r in id_.iterrows():
+            rate = _sensor_rate(r.get("sensor", ""), kind)
+            if rate is None:
+                continue
+            rows.append({**r.to_dict(), "drop_rate": rate})
+        if not rows:
+            continue
+        plot_metric_curves(
+            pd.DataFrame(rows),
+            x="drop_rate",
+            y="accuracy",
+            hue="method_label",
+            title=title,
+            path=fig / fname,
+            xlabel="Dropped fraction of beams",
+            ylabel="Accuracy",
+        )
+
+
+def _write_k16_lidardataframes_sensor(df: pd.DataFrame, path: Path) -> None:
+    hue = "method_label" if "method_label" in df.columns else "method"
+
+    def acc(split: str, tag: str, sensor: str) -> float | None:
+        sub = df[(df["split"] == split) & (df[hue] == tag) & (df["sensor"] == sensor)]
+        if sub.empty:
+            return None
+        return float(sub["accuracy"].mean())
+
+    def fmt(x: float | None) -> str:
+        return "n/a" if x is None else f"{x:.3f}"
+
+    g = (
+        df.groupby(["split", hue, "sensor"])[["accuracy", "macro_f1"]]
+        .mean()
+        .reset_index()
+        .round(4)
+    )
+    path.write_text(
+        "\n".join(
+            [
+                "# Stage 3 remake — LidarDataFrames sensor dropout at 128 B",
+                "",
+                "Author-labeled RPLiDAR frames. Corruptions hit the scan **before** encoding "
+                "(BER = 0). Budget 128 bytes, `D=1024`. k=16 skip / DROP / fill vs k=1 skip, "
+                "linear skip, hashing, and 8-bit PCM. Sim `k16_sensor.jsonl` and "
+                "`k16_sector_encode.jsonl` are unchanged.",
+                "",
+                "`test_ood` is an i.i.d. holdout, not a floorplan shift. Dropout and range "
+                "scale do not need a building id; Stage 4 few-shot-after-shift is still "
+                "blocked on this corpus (holdout N≈80 cannot run 50/100 shots per class).",
+                "",
+                "Means over seeds:",
+                "",
+                _md_table(g),
+                "",
+                "Figures: `results/figures/accuracy_k16_lidardataframes_beam_drop.png`, "
+                "`results/figures/accuracy_k16_lidardataframes_sector_drop.png`.",
+                "",
+                "## Reading",
+                "",
+                "The question is whether the sim Stage 3 operating region (random beam drop "
+                "holds; 30% sector drop with max-range fill fails; skip/DROP recover) still "
+                "shows up on author-labeled real scans at the 128 B working point.",
+                "",
+                f"- **Clean test_id:** k=16 skip {fmt(acc('test_id', 'hdc_k16/skip', 'clean'))}, "
+                f"fill {fmt(acc('test_id', 'hdc_k16/fill', 'clean'))}, "
+                f"linear {fmt(acc('test_id', 'hdc_linear/skip', 'clean'))}, "
+                f"hashing {fmt(acc('test_id', 'binary_hash', 'clean'))}, "
+                f"PCM {fmt(acc('test_id', 'quantized', 'clean'))}.",
+                f"- **30% random beam drop, test_id:** k=16 skip "
+                f"{fmt(acc('test_id', 'hdc_k16/skip', 'beam_drop:drop_rate=0.3'))}, "
+                f"fill {fmt(acc('test_id', 'hdc_k16/fill', 'beam_drop:drop_rate=0.3'))}, "
+                f"linear {fmt(acc('test_id', 'hdc_linear/skip', 'beam_drop:drop_rate=0.3'))}, "
+                f"hashing {fmt(acc('test_id', 'binary_hash', 'beam_drop:drop_rate=0.3'))}, "
+                f"PCM {fmt(acc('test_id', 'quantized', 'beam_drop:drop_rate=0.3'))}.",
+                f"- **30% sector drop, test_id:** k=16 skip "
+                f"{fmt(acc('test_id', 'hdc_k16/skip', 'sector_drop:fraction=0.3'))}, "
+                f"DROP {fmt(acc('test_id', 'hdc_k16/drop', 'sector_drop:fraction=0.3'))}, "
+                f"fill {fmt(acc('test_id', 'hdc_k16/fill', 'sector_drop:fraction=0.3'))}, "
+                f"linear {fmt(acc('test_id', 'hdc_linear/skip', 'sector_drop:fraction=0.3'))}, "
+                f"hashing {fmt(acc('test_id', 'binary_hash', 'sector_drop:fraction=0.3'))}.",
+                f"- **Range scale 1.15 / clip 6 m, test_id k=16 skip:** "
+                f"{fmt(acc('test_id', 'hdc_k16/skip', 'range_scale:scale=1.15'))} / "
+                f"{fmt(acc('test_id', 'hdc_k16/skip', 'clip:clip_to=6.0'))}.",
+                "",
+                "N is small (~80 test frames). Treat the ranking and the skip-vs-fill gap as "
+                "the result, not the exact percentages.",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+
 def _write_final(
     bw: pd.DataFrame,
     noise: pd.DataFrame,
@@ -1543,6 +1666,7 @@ def _write_final(
     k16_adapt_128: pd.DataFrame | None = None,
     k16_semantic2d: pd.DataFrame | None = None,
     k16_lidardataframes: pd.DataFrame | None = None,
+    k16_ldf_sensor: pd.DataFrame | None = None,
 ) -> None:
     lines = [
         "# Working region of HDC for task-aware LiDAR communication",
@@ -1800,6 +1924,24 @@ def _write_final(
             .round(4)
         )
         lines += [_md_table(gs)]
+    if k16_ldf_sensor is not None and not k16_ldf_sensor.empty:
+        lines += [
+            "## Stage 3 on LidarDataFrames (author labels)",
+            "",
+            "See `reports/stage3_k16_lidardataframes_sensor.md`. Beam / sector dropout, "
+            "range scale, and clip at 128 B. Skip / DROP vs max-range fill. "
+            "`test_ood` is i.i.d., not a building shift.",
+            "",
+        ]
+        hue = "method_label" if "method_label" in k16_ldf_sensor.columns else "method"
+        gs = (
+            k16_ldf_sensor.groupby(["split", hue, "sensor"])["accuracy"]
+            .mean()
+            .reset_index()
+            .round(4)
+        )
+        drop = gs[gs["sensor"].astype(str).str.contains("beam_drop|sector_drop|clean", regex=True)]
+        lines += [_md_table(drop if not drop.empty else gs)]
     if radio is not None and not radio.empty:
         lines += [
             "## Realistic radio (Stage 8)",
@@ -1825,6 +1967,7 @@ def _write_final(
         "| Uncoded radio | k=16 stays flat at 128 B under BPSK-AWGN and block Rayleigh; matched BER tracks AWGN. Linear is hurt by clustered fades. |",
         "| Sensor dropout / scale | k=16 holds random beam drop. 30% sector drop with max-range fill is a fake opening (~0.39 ID). Skip/DROP recover ~0.90 ID / ~0.70–0.75 OOD. |",
         "| Real 2D LiDAR | Semantic2D derived labels ID ~0.50. LidarDataFrames author labels (411 frames): k=16 / linear ~0.97, PCM cliffs. Not a building OOD. |",
+        "| Real LiDAR sensor dropout | LidarDataFrames Stage 3 remake at 128 B: see `reports/stage3_k16_lidardataframes_sensor.md`. Skip vs fill on sector drop. |",
         "| Hybrid encoder | Prototype head ~0.73–0.80; linear head on HDC codes can match/beat hashing |",
         "| Multi-centroid | k>1 lifts prototype accuracy while staying BER-flat; see OOD vs linear in the table |",
         "",

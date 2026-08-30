@@ -22,7 +22,7 @@ This repository follows the project brief: compare HDC against quantization, PCA
 | Unit tests for HDC ops, bit accounting, channels, splits | yes |
 | Streamlit lab for scans, live channel, curves | yes |
 
-Later stages in the brief that are still open: a hardware radio trace (this VM has no SDR). Stage 8 here is an uncoded BPSK/QPSK + AWGN/Rayleigh model, not over-the-air captures. Real 2D LiDAR: `semantic2d_v1` (derived place labels) and `lidardataframes_v1` (author place labels, 411 frames).
+Later stages in the brief that are still open: a hardware radio trace (this VM has no SDR). Stage 8 here is an uncoded BPSK/QPSK + AWGN/Rayleigh model, not over-the-air captures. Real 2D LiDAR: `semantic2d_v1` (derived place labels) and `lidardataframes_v1` (author place labels, 411 frames, Stage 1/2 at 128 B plus Stage 3 sensor dropout).
 
 ## Setup
 
@@ -75,6 +75,11 @@ python scripts/run_k16_semantic2d.py
 python scripts/prepare_lidardataframes.py
 python scripts/run_k16_lidardataframes.py
 # Does not overwrite sim_indoor or semantic2d JSONL.
+
+# Stage 3 remake on author-labeled real scans (128 B, skip / DROP / fill)
+python scripts/run_k16_lidardataframes_sensor.py
+# Does not overwrite k16_sensor.jsonl or k16_sector_encode.jsonl.
+# Stage 4 10/50/100-shot OOD is not remade here: N≈80 holdout and no building shift.
 
 # Stage 4 remake — few-shot OOD at the 128 B operating point (k=1 / k=16 / linear)
 python scripts/run_k16_adaptation_128b.py

@@ -16,6 +16,7 @@ Generated files:
 - `stage4_multicentroid_adapt.md` — k=1/8/16 vs linear head, 10/50/100-shot OOD
 - `stage0_semantic2d.md` — real 2D LiDAR (Semantic2D), derived place labels, 128 B k=16
 - `stage0_lidardataframes.md` — real 2D LiDAR (LidarDataFrames), author place labels, 128 B k=16
+- `stage3_k16_lidardataframes_sensor.md` — Stage 3 remake on LidarDataFrames (beam / sector / scale, skip vs fill)
 - `stage4_k16_adaptation_128b.md` — same protocol at 128 B (k=1 / k=16 / linear)
 - `multicentroid.md` — k prototypes per class vs linear head
 - `stage8_radio.md` — uncoded BPSK/QPSK vs matched BER
