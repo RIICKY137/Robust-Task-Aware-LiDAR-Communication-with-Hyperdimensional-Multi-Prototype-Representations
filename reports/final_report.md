@@ -380,6 +380,93 @@ See `reports/stage3_k16_sensor.md`. Beam and sector dropout before encoding, 512
 | test_ood | quantized | sector_drop:fraction=0.15 | 0.5214 |
 | test_ood | quantized | sector_drop:fraction=0.3 | 0.4721 |
 
+## k=16 communication-noise remake
+
+See `reports/stage2_k16_noise.md`. BER at 128 B and 512 B; burst and packet loss at 128 B.
+
+| split | method_label | budget_bytes | ber | accuracy |
+| --- | --- | --- | --- | --- |
+| test_id | binary_hash | 128 | 0.0000 | 0.8638 |
+| test_id | binary_hash | 128 | 0.0100 | 0.8329 |
+| test_id | binary_hash | 128 | 0.0500 | 0.7517 |
+| test_id | binary_hash | 128 | 0.1000 | 0.6802 |
+| test_id | binary_hash | 512 | 0.0000 | 0.9216 |
+| test_id | binary_hash | 512 | 0.0100 | 0.9149 |
+| test_id | binary_hash | 512 | 0.0500 | 0.8837 |
+| test_id | binary_hash | 512 | 0.1000 | 0.8398 |
+| test_id | hdc_k1 | 128 | 0.0000 | 0.7269 |
+| test_id | hdc_k1 | 128 | 0.0100 | 0.7274 |
+| test_id | hdc_k1 | 128 | 0.0500 | 0.7227 |
+| test_id | hdc_k1 | 128 | 0.1000 | 0.7197 |
+| test_id | hdc_k1 | 512 | 0.0000 | 0.7313 |
+| test_id | hdc_k1 | 512 | 0.0100 | 0.7302 |
+| test_id | hdc_k1 | 512 | 0.0500 | 0.7294 |
+| test_id | hdc_k1 | 512 | 0.1000 | 0.7285 |
+| test_id | hdc_k16 | 128 | 0.0000 | 0.9533 |
+| test_id | hdc_k16 | 128 | 0.0100 | 0.9533 |
+| test_id | hdc_k16 | 128 | 0.0500 | 0.9519 |
+| test_id | hdc_k16 | 128 | 0.1000 | 0.9517 |
+| test_id | hdc_k16 | 512 | 0.0000 | 0.9597 |
+| test_id | hdc_k16 | 512 | 0.0100 | 0.9605 |
+| test_id | hdc_k16 | 512 | 0.0500 | 0.9589 |
+| test_id | hdc_k16 | 512 | 0.1000 | 0.9577 |
+| test_id | hdc_linear | 128 | 0.0000 | 0.9453 |
+| test_id | hdc_linear | 128 | 0.0100 | 0.9398 |
+| test_id | hdc_linear | 128 | 0.0500 | 0.9086 |
+| test_id | hdc_linear | 128 | 0.1000 | 0.8608 |
+| test_id | hdc_linear | 512 | 0.0000 | 0.9738 |
+| test_id | hdc_linear | 512 | 0.0100 | 0.9732 |
+| test_id | hdc_linear | 512 | 0.0500 | 0.9680 |
+| test_id | hdc_linear | 512 | 0.1000 | 0.9564 |
+| test_id | quantized | 128 | 0.0000 | 0.7440 |
+| test_id | quantized | 128 | 0.0100 | 0.5907 |
+| test_id | quantized | 128 | 0.0500 | 0.4104 |
+| test_id | quantized | 128 | 0.1000 | 0.3082 |
+| test_id | quantized | 512 | 0.0000 | 0.7473 |
+| test_id | quantized | 512 | 0.0100 | 0.5695 |
+| test_id | quantized | 512 | 0.0500 | 0.3891 |
+| test_id | quantized | 512 | 0.1000 | 0.2949 |
+| test_ood | binary_hash | 128 | 0.0000 | 0.5834 |
+| test_ood | binary_hash | 128 | 0.0100 | 0.5716 |
+| test_ood | binary_hash | 128 | 0.0500 | 0.5367 |
+| test_ood | binary_hash | 128 | 0.1000 | 0.5015 |
+| test_ood | binary_hash | 512 | 0.0000 | 0.6228 |
+| test_ood | binary_hash | 512 | 0.0100 | 0.6153 |
+| test_ood | binary_hash | 512 | 0.0500 | 0.6062 |
+| test_ood | binary_hash | 512 | 0.1000 | 0.5794 |
+| test_ood | hdc_k1 | 128 | 0.0000 | 0.6990 |
+| test_ood | hdc_k1 | 128 | 0.0100 | 0.6976 |
+| test_ood | hdc_k1 | 128 | 0.0500 | 0.6911 |
+| test_ood | hdc_k1 | 128 | 0.1000 | 0.6816 |
+| test_ood | hdc_k1 | 512 | 0.0000 | 0.7114 |
+| test_ood | hdc_k1 | 512 | 0.0100 | 0.7133 |
+| test_ood | hdc_k1 | 512 | 0.0500 | 0.7104 |
+| test_ood | hdc_k1 | 512 | 0.1000 | 0.7062 |
+| test_ood | hdc_k16 | 128 | 0.0000 | 0.8405 |
+| test_ood | hdc_k16 | 128 | 0.0100 | 0.8405 |
+| test_ood | hdc_k16 | 128 | 0.0500 | 0.8374 |
+| test_ood | hdc_k16 | 128 | 0.1000 | 0.8338 |
+| test_ood | hdc_k16 | 512 | 0.0000 | 0.8502 |
+| test_ood | hdc_k16 | 512 | 0.0100 | 0.8508 |
+| test_ood | hdc_k16 | 512 | 0.0500 | 0.8498 |
+| test_ood | hdc_k16 | 512 | 0.1000 | 0.8462 |
+| test_ood | hdc_linear | 128 | 0.0000 | 0.7937 |
+| test_ood | hdc_linear | 128 | 0.0100 | 0.7905 |
+| test_ood | hdc_linear | 128 | 0.0500 | 0.7659 |
+| test_ood | hdc_linear | 128 | 0.1000 | 0.7310 |
+| test_ood | hdc_linear | 512 | 0.0000 | 0.8169 |
+| test_ood | hdc_linear | 512 | 0.0100 | 0.8153 |
+| test_ood | hdc_linear | 512 | 0.0500 | 0.8076 |
+| test_ood | hdc_linear | 512 | 0.1000 | 0.7976 |
+| test_ood | quantized | 128 | 0.0000 | 0.7342 |
+| test_ood | quantized | 128 | 0.0100 | 0.6245 |
+| test_ood | quantized | 128 | 0.0500 | 0.4818 |
+| test_ood | quantized | 128 | 0.1000 | 0.3930 |
+| test_ood | quantized | 512 | 0.0000 | 0.7531 |
+| test_ood | quantized | 512 | 0.0100 | 0.6070 |
+| test_ood | quantized | 512 | 0.0500 | 0.4513 |
+| test_ood | quantized | 512 | 0.1000 | 0.3656 |
+
 ## Realistic radio (Stage 8)
 
 See `reports/stage8_radio.md`. Uncoded BPSK/QPSK hard decisions vs matched i.i.d. BER at the same Eb/N0.
@@ -488,8 +575,8 @@ See `reports/stage8_radio.md`. Uncoded BPSK/QPSK hard decisions vs matched i.i.d
 | Regime | Current reading |
 |---|---|
 | Clean 2D scan | k=1 prototype loses to hashing; k=16 / linear close that gap. See k=16 bandwidth remake. |
-| Random BER | Pure HDC (any k) almost flat; PCM/PCA cliff |
-| Burst / packet loss | Binary codes degrade slower than float PCA; interleave hurts PCM |
+| Random BER | k=16 stays flat at 128 B (~0.95). Linear head is not holographic at that budget. PCM cliffs. |
+| Burst / packet loss | k=16 holds 128-bit bursts and 20% packet loss at 128 B; a 512-bit burst (half the code) is a failure region |
 | Uncoded radio | Pure HDC stays flat under BPSK/QPSK AWGN and block Rayleigh; PCM/PCA still cliff. Matched i.i.d. BER tracks AWGN. |
 | Sensor dropout / scale | k=16 holds under random beam drop; 30% contiguous sector drop is a failure region. First-round Stage 3 used k=1. |
 | Few-shot OOD | HDC updates are milliseconds vs seconds for a linear refit |

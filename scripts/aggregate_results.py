@@ -988,8 +988,16 @@ def _write_k16_noise(df: pd.DataFrame, path: Path) -> None:
     parts += [
         "## Reading",
         "",
-        "See the tables. The question is whether k=16 stays BER-flat at 128 B, "
-        "where the clean-channel accuracy already matches hashing at 2048 B.",
+        "- **k=16 stays BER-flat at 128 B.** In-distribution accuracy is ~0.95 from BER 0 to 0.10, "
+        "matching the 512 B curve. k=1 is also flat, but stuck at ~0.73.",
+        "- **The linear head is not holographic at 128 B.** It drops ~0.95 → ~0.86 in-distribution "
+        "at BER 0.10. At 512 B the same head was almost flat. Hashing at 128 B falls ~0.86 → ~0.68; "
+        "8-bit PCM cliffs ~0.74 → ~0.31.",
+        "- **Scattered packet loss (32 B packets) is still in the k=16 region.** At PLR 0.20, "
+        "k=16 stays ~0.95; linear and hashing drop.",
+        "- **A 512-bit burst on a 1024-bit code is a failure region for everyone.** Half the "
+        "hypervector is flipped as one block; accuracy collapses to chance-level. A 128-bit burst "
+        "does not move k=16.",
         "",
     ]
     path.write_text("\n".join(parts), encoding="utf-8")
@@ -1212,8 +1220,8 @@ def _write_final(
         "| Regime | Current reading |",
         "|---|---|",
         "| Clean 2D scan | k=1 prototype loses to hashing; k=16 / linear close that gap. See k=16 bandwidth remake. |",
-        "| Random BER | k=16 remake at 128 B: `reports/stage2_k16_noise.md`. First-round Stage 2 used k=1 at 512 B. |",
-        "| Burst / packet loss | Binary codes degrade slower than float PCA; interleave hurts PCM |",
+        "| Random BER | k=16 stays flat at 128 B (~0.95). Linear head is not holographic at that budget. PCM cliffs. |",
+        "| Burst / packet loss | k=16 holds 128-bit bursts and 20% packet loss at 128 B; a 512-bit burst (half the code) is a failure region |",
         "| Uncoded radio | Pure HDC stays flat under BPSK/QPSK AWGN and block Rayleigh; PCM/PCA still cliff. Matched i.i.d. BER tracks AWGN. |",
         "| Sensor dropout / scale | k=16 holds under random beam drop; 30% contiguous sector drop is a failure region. First-round Stage 3 used k=1. |",
         "| Few-shot OOD | HDC updates are milliseconds vs seconds for a linear refit |",
