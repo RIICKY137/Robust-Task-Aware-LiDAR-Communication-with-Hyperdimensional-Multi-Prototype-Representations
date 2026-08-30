@@ -6,7 +6,7 @@ HDC-based task-aware communication for bandwidth-constrained robotic LiDAR. The 
 
 This repository follows the project brief: compare HDC against quantization, PCA, autoencoder, and binary hashing under a **shared byte budget**, then stress the bitstream with bit flips, bursts, and packet loss, then measure few-shot prototype updates after environment shift. HDC is **not** assumed to win. The goal is the **operating region** (bandwidth × noise × adaptation cost) where it helps or fails.
 
-阶段性总结（问题、A/B/C/D、工作区、未验证项）：[`reports/milestone_summary.md`](reports/milestone_summary.md)。分阶段数字表仍由 `scripts/aggregate_results.py` 从 JSONL 生成。
+阶段性总结（问题、A/B/C/D、工作区、未验证项）：[`reports/milestone_summary.md`](reports/milestone_summary.md)。分阶段数字表仍由 `scripts/aggregate_results.py` 从 JSONL 生成。结果目录与「哪些进 git」见 [`results/README.md`](results/README.md)。
 
 ## What is implemented (Stage 0 → first-round matrix)
 

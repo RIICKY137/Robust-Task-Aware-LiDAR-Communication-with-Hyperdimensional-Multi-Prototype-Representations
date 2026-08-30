@@ -1,6 +1,6 @@
 # Simulated / public LiDAR data
 
-Processed arrays are written by `python scripts/prepare_data.py` and are gitignored.
+Processed arrays are written by the prepare scripts and are **gitignored**. Frozen split JSON is tracked under `data/splits/`. Raw archives (Semantic2D tarball, Kaggle CSV) stay in `data/raw/` and are not committed. Sweep JSONL, figures, and reports are tracked under `results/` and `reports/` — see [`results/README.md`](../results/README.md).
 
 ```
 data/
