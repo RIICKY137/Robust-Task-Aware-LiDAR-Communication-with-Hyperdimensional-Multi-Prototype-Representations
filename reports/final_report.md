@@ -13,7 +13,7 @@ This report answers the three questions in the project brief. It does **not** cl
 
 ## RQ1 — bandwidth
 
-See `reports/stage1_bandwidth.md`. On this 180-beam scan, 8-bit PCM saturates at ~188 bytes. Pure HDC is not a compression win (Outcome A fails). Binary hashing leads on a clean channel.
+See `reports/stage1_bandwidth.md` for the first-round matrix (single prototype). On this 180-beam scan, 8-bit PCM saturates at ~188 bytes. A **single** HDC prototype is not a compression win (Outcome A fails for k=1). The k=16 remake is `reports/stage1_k16_bandwidth.md`.
 
 ## RQ2 — communication noise
 
@@ -136,7 +136,7 @@ Packet-loss × interleave means:
 
 ## RQ3 — shift and adaptation
 
-Sensor corruptions (pre-encoder) and OOD floorplan: `reports/stage3_shift.md`.
+Sensor corruptions (pre-encoder) and OOD floorplan: `reports/stage3_shift.md` (k=1) and `reports/stage3_k16_sensor.md` (k=16 remake).
 Few-shot prototype / head updates: `reports/stage4_adaptation.md`.
 
 | shots_per_class | hdc_new_acc | hdc_old_acc | hdc_forgetting | hdc_adapt_ms | quant_new_acc | quant_old_acc | quant_forgetting | quant_adapt_ms | hybrid_new_acc | hybrid_old_acc | hybrid_forgetting | hybrid_adapt_ms |
@@ -286,6 +286,100 @@ See `reports/stage4_multicentroid_adapt.md`. OOD shots update the nearest centro
 | hdc_linear | 50 | 0.8862 | 0.9713 | 0.0025 | 5499.7658 |
 | hdc_linear | 100 | 0.9268 | 0.9671 | 0.0066 | 7755.2710 |
 
+## k=16 bandwidth remake
+
+See `reports/stage1_k16_bandwidth.md`. Same payload family as Stage 1, with k=16 centroids, linear head, hashing, and 8-bit PCM. Dimension fills the budget.
+
+| split | method_label | budget_bytes | accuracy |
+| --- | --- | --- | --- |
+| test_id | binary_hash | 128 | 0.8638 |
+| test_id | binary_hash | 512 | 0.9216 |
+| test_id | binary_hash | 2048 | 0.9431 |
+| test_id | hdc_k1 | 128 | 0.7269 |
+| test_id | hdc_k1 | 512 | 0.7313 |
+| test_id | hdc_k1 | 2048 | 0.7352 |
+| test_id | hdc_k16 | 128 | 0.9533 |
+| test_id | hdc_k16 | 512 | 0.9597 |
+| test_id | hdc_k16 | 2048 | 0.9569 |
+| test_id | hdc_linear | 128 | 0.9453 |
+| test_id | hdc_linear | 512 | 0.9738 |
+| test_id | hdc_linear | 2048 | 0.9779 |
+| test_id | quantized | 128 | 0.7440 |
+| test_id | quantized | 512 | 0.7473 |
+| test_id | quantized | 2048 | 0.7473 |
+| test_ood | binary_hash | 128 | 0.5834 |
+| test_ood | binary_hash | 512 | 0.6228 |
+| test_ood | binary_hash | 2048 | 0.6277 |
+| test_ood | hdc_k1 | 128 | 0.6990 |
+| test_ood | hdc_k1 | 512 | 0.7114 |
+| test_ood | hdc_k1 | 2048 | 0.7118 |
+| test_ood | hdc_k16 | 128 | 0.8405 |
+| test_ood | hdc_k16 | 512 | 0.8502 |
+| test_ood | hdc_k16 | 2048 | 0.8531 |
+| test_ood | hdc_linear | 128 | 0.7937 |
+| test_ood | hdc_linear | 512 | 0.8169 |
+| test_ood | hdc_linear | 2048 | 0.8191 |
+| test_ood | quantized | 128 | 0.7342 |
+| test_ood | quantized | 512 | 0.7531 |
+| test_ood | quantized | 2048 | 0.7531 |
+
+## k=16 sensor dropout remake
+
+See `reports/stage3_k16_sensor.md`. Beam and sector dropout before encoding, 512 bytes.
+
+| split | method_label | sensor | accuracy |
+| --- | --- | --- | --- |
+| test_id | binary_hash | beam_drop:drop_rate=0.1 | 0.5035 |
+| test_id | binary_hash | beam_drop:drop_rate=0.3 | 0.2262 |
+| test_id | binary_hash | clean | 0.9216 |
+| test_id | binary_hash | sector_drop:fraction=0.15 | 0.3933 |
+| test_id | binary_hash | sector_drop:fraction=0.3 | 0.2737 |
+| test_id | hdc_k1 | beam_drop:drop_rate=0.1 | 0.6703 |
+| test_id | hdc_k1 | beam_drop:drop_rate=0.3 | 0.4836 |
+| test_id | hdc_k1 | clean | 0.7313 |
+| test_id | hdc_k1 | sector_drop:fraction=0.15 | 0.5753 |
+| test_id | hdc_k1 | sector_drop:fraction=0.3 | 0.4410 |
+| test_id | hdc_k16 | beam_drop:drop_rate=0.1 | 0.9437 |
+| test_id | hdc_k16 | beam_drop:drop_rate=0.3 | 0.8028 |
+| test_id | hdc_k16 | clean | 0.9597 |
+| test_id | hdc_k16 | sector_drop:fraction=0.15 | 0.7926 |
+| test_id | hdc_k16 | sector_drop:fraction=0.3 | 0.3869 |
+| test_id | hdc_linear | beam_drop:drop_rate=0.1 | 0.7523 |
+| test_id | hdc_linear | beam_drop:drop_rate=0.3 | 0.5255 |
+| test_id | hdc_linear | clean | 0.9738 |
+| test_id | hdc_linear | sector_drop:fraction=0.15 | 0.5929 |
+| test_id | hdc_linear | sector_drop:fraction=0.3 | 0.4584 |
+| test_id | quantized | beam_drop:drop_rate=0.1 | 0.3314 |
+| test_id | quantized | beam_drop:drop_rate=0.3 | 0.2579 |
+| test_id | quantized | clean | 0.7473 |
+| test_id | quantized | sector_drop:fraction=0.15 | 0.4228 |
+| test_id | quantized | sector_drop:fraction=0.3 | 0.3195 |
+| test_ood | binary_hash | beam_drop:drop_rate=0.1 | 0.4357 |
+| test_ood | binary_hash | beam_drop:drop_rate=0.3 | 0.2534 |
+| test_ood | binary_hash | clean | 0.6228 |
+| test_ood | binary_hash | sector_drop:fraction=0.15 | 0.3739 |
+| test_ood | binary_hash | sector_drop:fraction=0.3 | 0.3095 |
+| test_ood | hdc_k1 | beam_drop:drop_rate=0.1 | 0.5375 |
+| test_ood | hdc_k1 | beam_drop:drop_rate=0.3 | 0.5426 |
+| test_ood | hdc_k1 | clean | 0.7114 |
+| test_ood | hdc_k1 | sector_drop:fraction=0.15 | 0.5166 |
+| test_ood | hdc_k1 | sector_drop:fraction=0.3 | 0.5066 |
+| test_ood | hdc_k16 | beam_drop:drop_rate=0.1 | 0.6976 |
+| test_ood | hdc_k16 | beam_drop:drop_rate=0.3 | 0.5901 |
+| test_ood | hdc_k16 | clean | 0.8502 |
+| test_ood | hdc_k16 | sector_drop:fraction=0.15 | 0.5724 |
+| test_ood | hdc_k16 | sector_drop:fraction=0.3 | 0.4373 |
+| test_ood | hdc_linear | beam_drop:drop_rate=0.1 | 0.6037 |
+| test_ood | hdc_linear | beam_drop:drop_rate=0.3 | 0.5286 |
+| test_ood | hdc_linear | clean | 0.8169 |
+| test_ood | hdc_linear | sector_drop:fraction=0.15 | 0.5393 |
+| test_ood | hdc_linear | sector_drop:fraction=0.3 | 0.4987 |
+| test_ood | quantized | beam_drop:drop_rate=0.1 | 0.4007 |
+| test_ood | quantized | beam_drop:drop_rate=0.3 | 0.3347 |
+| test_ood | quantized | clean | 0.7531 |
+| test_ood | quantized | sector_drop:fraction=0.15 | 0.5214 |
+| test_ood | quantized | sector_drop:fraction=0.3 | 0.4721 |
+
 ## Realistic radio (Stage 8)
 
 See `reports/stage8_radio.md`. Uncoded BPSK/QPSK hard decisions vs matched i.i.d. BER at the same Eb/N0.
@@ -393,11 +487,11 @@ See `reports/stage8_radio.md`. Uncoded BPSK/QPSK hard decisions vs matched i.i.d
 
 | Regime | Current reading |
 |---|---|
-| Clean 2D scan | Hashing / AE beat pure HDC |
-| Random BER | Pure HDC almost flat; PCM/PCA cliff |
+| Clean 2D scan | k=1 prototype loses to hashing; k=16 / linear close that gap. See k=16 bandwidth remake. |
+| Random BER | Pure HDC (any k) almost flat; PCM/PCA cliff |
 | Burst / packet loss | Binary codes degrade slower than float PCA; interleave hurts PCM |
 | Uncoded radio | Pure HDC stays flat under BPSK/QPSK AWGN and block Rayleigh; PCM/PCA still cliff. Matched i.i.d. BER tracks AWGN. |
-| Sensor dropout / scale | See Stage 3; not billed as communication noise |
+| Sensor dropout / scale | k=16 holds under random beam drop; 30% contiguous sector drop is a failure region. First-round Stage 3 used k=1. |
 | Few-shot OOD | HDC updates are milliseconds vs seconds for a linear refit |
 | Hybrid encoder | Prototype head ~0.73–0.80; linear head on HDC codes can match/beat hashing |
 | Multi-centroid | k>1 lifts prototype accuracy while staying BER-flat; see OOD vs linear in the table |

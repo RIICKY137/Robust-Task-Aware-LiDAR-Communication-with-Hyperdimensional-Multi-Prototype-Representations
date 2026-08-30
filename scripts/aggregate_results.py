@@ -780,6 +780,15 @@ def _write_k16_bandwidth(df: pd.DataFrame, path: Path) -> None:
                 "Figures: `results/figures/accuracy_k16_bandwidth.png`, "
                 "`results/figures/accuracy_k16_bandwidth_ood.png`.",
                 "",
+                "## Reading",
+                "",
+                "- **k=1 is still not a compressor.** Accuracy stays ~0.73 in-distribution at every budget.",
+                "- **k=16 saturates early.** At 128 B (`D=1024`) it is already ~0.95 in-distribution, "
+                "matching hashing at 2048 B, and ~0.84 OOD (hashing stays ~0.58–0.63).",
+                "- Extra bytes help the **linear** head in-distribution (0.95 → 0.98) more than k=16. "
+                "k=16 stays ahead of linear on OOD at every budget.",
+                "- 8-bit PCM saturates at 188 B and does not use the extra budget.",
+                "",
             ]
         ),
         encoding="utf-8",
@@ -818,6 +827,18 @@ def _write_k16_sensor(df: pd.DataFrame, path: Path) -> None:
             .round(4)
         )
         parts += ["OOD (`test_ood`), mean over seeds:", "", _md_table(g_ood), ""]
+    parts += [
+        "## Reading",
+        "",
+        "- **Scattered beam dropout is the k=16 operating region.** At 10% random beam drop, "
+        "in-distribution k=16 stays near clean (~0.94) while hashing falls to ~0.50 and the linear "
+        "head to ~0.75. At 30% it is still ~0.80 vs ~0.23 hashing / ~0.53 linear.",
+        "- **Contiguous sector drop is a failure region.** 15% sector drop: k=16 ~0.79 vs linear ~0.59 "
+        "vs hashing ~0.39. At 30% (~54 adjacent beams) k=16 collapses to ~0.39, no better than k=1.",
+        "- Mild range noise / bias barely moves k=16. Range clip to 6 m hurts the linear head more "
+        "than nearest-centroid (~0.54 vs ~0.88 in-distribution).",
+        "",
+    ]
     path.write_text("\n".join(parts), encoding="utf-8")
 
 
@@ -1024,7 +1045,7 @@ def _write_final(
         "| Random BER | Pure HDC (any k) almost flat; PCM/PCA cliff |",
         "| Burst / packet loss | Binary codes degrade slower than float PCA; interleave hurts PCM |",
         "| Uncoded radio | Pure HDC stays flat under BPSK/QPSK AWGN and block Rayleigh; PCM/PCA still cliff. Matched i.i.d. BER tracks AWGN. |",
-        "| Sensor dropout / scale | k=16 remake in `reports/stage3_k16_sensor.md`; first-round Stage 3 used k=1 |",
+        "| Sensor dropout / scale | k=16 holds under random beam drop; 30% contiguous sector drop is a failure region. First-round Stage 3 used k=1. |",
         "| Few-shot OOD | HDC updates are milliseconds vs seconds for a linear refit |",
         "| Hybrid encoder | Prototype head ~0.73–0.80; linear head on HDC codes can match/beat hashing |",
         "| Multi-centroid | k>1 lifts prototype accuracy while staying BER-flat; see OOD vs linear in the table |",
