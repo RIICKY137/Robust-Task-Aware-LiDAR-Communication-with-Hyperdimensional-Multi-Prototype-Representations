@@ -87,6 +87,7 @@ def main() -> None:
     k16_sector_encode = load_jsonl(raw / "k16_sector_encode.jsonl")
     k16_adapt_128 = load_jsonl(raw / "k16_adaptation_128b.jsonl")
     k16_semantic2d = load_jsonl(raw / "k16_semantic2d.jsonl")
+    k16_lidardataframes = load_jsonl(raw / "k16_lidardataframes.jsonl")
 
     if not bw.empty:
         bw = bw.copy()
@@ -344,6 +345,16 @@ def main() -> None:
         k16_semantic2d.to_csv(tables / "k16_semantic2d.csv", index=False)
         _plot_k16_semantic2d(k16_semantic2d, fig)
         _write_k16_semantic2d(k16_semantic2d, reports / "stage0_semantic2d.md")
+    if not k16_lidardataframes.empty:
+        k16_lidardataframes = k16_lidardataframes.copy()
+        k16_lidardataframes["method_label"] = (
+            k16_lidardataframes["method_tag"]
+            if "method_tag" in k16_lidardataframes.columns
+            else method_label(k16_lidardataframes)
+        )
+        k16_lidardataframes.to_csv(tables / "k16_lidardataframes.csv", index=False)
+        _plot_k16_lidardataframes(k16_lidardataframes, fig)
+        _write_k16_lidardataframes(k16_lidardataframes, reports / "stage0_lidardataframes.md")
 
     _write_final(
         bw,
@@ -366,6 +377,7 @@ def main() -> None:
         k16_sector_encode=k16_sector_encode,
         k16_adapt_128=k16_adapt_128,
         k16_semantic2d=k16_semantic2d,
+        k16_lidardataframes=k16_lidardataframes,
     )
     print("reports updated")
 
@@ -1404,6 +1416,105 @@ def _write_k16_semantic2d(df: pd.DataFrame, path: Path) -> None:
     )
 
 
+def _plot_k16_lidardataframes(df: pd.DataFrame, fig: Path) -> None:
+    id_ = df[df["split"] == "test_id"] if "split" in df.columns else df
+    if id_.empty:
+        return
+    plot_metric_curves(
+        id_,
+        x="ber",
+        y="accuracy",
+        hue="method_label",
+        title="LidarDataFrames author labels: accuracy vs BER (128 B, test_id)",
+        path=fig / "accuracy_k16_lidardataframes.png",
+        xlabel="BER",
+        ylabel="Accuracy",
+    )
+    ood = df[df["split"] == "test_ood"] if "split" in df.columns else df
+    if ood.empty:
+        return
+    plot_metric_curves(
+        ood,
+        x="ber",
+        y="accuracy",
+        hue="method_label",
+        title="LidarDataFrames author labels: accuracy vs BER (128 B, i.i.d. holdout)",
+        path=fig / "accuracy_k16_lidardataframes_ood.png",
+        xlabel="BER",
+        ylabel="Accuracy",
+    )
+
+
+def _write_k16_lidardataframes(df: pd.DataFrame, path: Path) -> None:
+    hue = "method_label" if "method_label" in df.columns else "method"
+
+    def acc(split: str, tag: str, ber: float) -> float | None:
+        sub = df[(df["split"] == split) & (df[hue] == tag) & (df["ber"] == ber)]
+        if sub.empty:
+            return None
+        return float(sub["accuracy"].mean())
+
+    def fmt(x: float | None) -> str:
+        return "n/a" if x is None else f"{x:.3f}"
+
+    g = (
+        df.groupby(["split", hue, "ber"])[["accuracy", "macro_f1"]]
+        .mean()
+        .reset_index()
+        .round(4)
+    )
+    id0 = {
+        "k16": acc("test_id", "hdc_k16", 0.0),
+        "k1": acc("test_id", "hdc_k1", 0.0),
+        "lin": acc("test_id", "hdc_linear", 0.0),
+        "hash": acc("test_id", "binary_hash", 0.0),
+        "pcm": acc("test_id", "quantized", 0.0),
+    }
+    id10 = {
+        "k16": acc("test_id", "hdc_k16", 0.10),
+        "lin": acc("test_id", "hdc_linear", 0.10),
+        "pcm": acc("test_id", "quantized", 0.10),
+        "hash": acc("test_id", "binary_hash", 0.10),
+    }
+    path.write_text(
+        "\n".join(
+            [
+                "# Real 2D LiDAR — LidarDataFrames at 128 B k=16 (author place labels)",
+                "",
+                "Scans are RPLiDAR A1 frames from Kaggle LidarDataFrames. Place labels are "
+                "**author-assigned** room / corridor / doorway / hall (hall → `open_area`). "
+                "411 frames, four classes, no `cluttered_area`. This is the labeled real-scan "
+                "check that Semantic2D could not provide.",
+                "",
+                "The CSV has no building id. `test_ood` is a stratified i.i.d. holdout, **not** "
+                "a floorplan shift. N is small (~80 test frames). First-round sim and Semantic2D "
+                "JSONL are unchanged.",
+                "",
+                "Means over seeds:",
+                "",
+                _md_table(g),
+                "",
+                "Figures: `results/figures/accuracy_k16_lidardataframes.png`, "
+                "`results/figures/accuracy_k16_lidardataframes_ood.png`.",
+                "",
+                "## Reading",
+                "",
+                "The question is whether 128 B k=16 still has an operating region when the "
+                "place tags are author labels rather than derived heuristics.",
+                "",
+                f"- **Clean test_id:** k=16 {fmt(id0['k16'])}, linear {fmt(id0['lin'])}, "
+                f"hashing {fmt(id0['hash'])}, k=1 {fmt(id0['k1'])}, PCM {fmt(id0['pcm'])}.",
+                f"- **BER = 0.10, test_id:** k=16 {fmt(id10['k16'])}, hashing {fmt(id10['hash'])}, "
+                f"linear {fmt(id10['lin'])}, PCM {fmt(id10['pcm'])}.",
+                "",
+                "Do not treat this as a replacement for Semantic2D scale or a building-shift OOD test.",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+
 def _write_final(
     bw: pd.DataFrame,
     noise: pd.DataFrame,
@@ -1425,6 +1536,7 @@ def _write_final(
     k16_sector_encode: pd.DataFrame | None = None,
     k16_adapt_128: pd.DataFrame | None = None,
     k16_semantic2d: pd.DataFrame | None = None,
+    k16_lidardataframes: pd.DataFrame | None = None,
 ) -> None:
     lines = [
         "# Working region of HDC for task-aware LiDAR communication",
@@ -1666,6 +1778,22 @@ def _write_final(
             .round(4)
         )
         lines += [_md_table(gs)]
+    if k16_lidardataframes is not None and not k16_lidardataframes.empty:
+        lines += [
+            "## Real 2D LiDAR (LidarDataFrames, author labels)",
+            "",
+            "See `reports/stage0_lidardataframes.md`. 128 B remake on 411 author-labeled scans. "
+            "`test_ood` is i.i.d., not a building shift.",
+            "",
+        ]
+        hue = "method_label" if "method_label" in k16_lidardataframes.columns else "method"
+        gs = (
+            k16_lidardataframes.groupby(["split", hue, "ber"])["accuracy"]
+            .mean()
+            .reset_index()
+            .round(4)
+        )
+        lines += [_md_table(gs)]
     if radio is not None and not radio.empty:
         lines += [
             "## Realistic radio (Stage 8)",
@@ -1690,11 +1818,11 @@ def _write_final(
         "| Burst / packet loss | k=16 holds 128-bit bursts and 20% packet loss at 128 B; a 512-bit burst (half the code) is a failure region |",
         "| Uncoded radio | k=16 stays flat at 128 B under BPSK-AWGN and block Rayleigh; matched BER tracks AWGN. Linear is hurt by clustered fades. |",
         "| Sensor dropout / scale | k=16 holds random beam drop. 30% sector drop with max-range fill is a fake opening (~0.39 ID). Skip/DROP recover ~0.90 ID / ~0.70–0.75 OOD. |",
-        "| Real 2D LiDAR | Semantic2D 128 B: k=16 ID ~0.50 and BER-flat, **not** the sim ~0.95. OOD is near majority. Labels are derived. |",
+        "| Real 2D LiDAR | Semantic2D (derived labels) ID ~0.50. LidarDataFrames (author labels, 411 frames): `reports/stage0_lidardataframes.md`. |",
         "| Hybrid encoder | Prototype head ~0.73–0.80; linear head on HDC codes can match/beat hashing |",
         "| Multi-centroid | k>1 lifts prototype accuracy while staying BER-flat; see OOD vs linear in the table |",
         "",
-        "Configs in `configs/`. Frozen splits in `data/splits/sim_indoor_v1/` and `data/splits/semantic2d_v1/`.",
+        "Configs in `configs/`. Frozen splits in `data/splits/sim_indoor_v1/`, `semantic2d_v1/`, and `lidardataframes_v1/`.",
         "",
     ]
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")

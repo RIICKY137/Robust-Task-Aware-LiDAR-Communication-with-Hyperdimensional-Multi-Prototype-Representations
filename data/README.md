@@ -29,4 +29,12 @@ python scripts/prepare_semantic2d.py
 python scripts/run_k16_semantic2d.py
 ```
 
+`lidardataframes_v1` is RPLiDAR A1 scans with **author** place tags (room / corridor / doorway / hall). CSV has no building id; `test_ood` is stratified i.i.d.
+
+```bash
+# FourClassDS.csv under data/raw/lidardataframes/ (gitignored)
+python scripts/prepare_lidardataframes.py
+python scripts/run_k16_lidardataframes.py
+```
+
 Add another loader under `src/hdc_lidar/data/` that emits the same `ScanBatch` fields and freeze files under `data/splits/<name>/`. Prefer public corpora that already have place or scene tags. If you only have trajectories plus a map, derive labels from map regions and split by session or building — never by random frame order.

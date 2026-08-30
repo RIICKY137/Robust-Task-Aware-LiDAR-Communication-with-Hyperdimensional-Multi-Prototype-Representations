@@ -22,7 +22,7 @@ This repository follows the project brief: compare HDC against quantization, PCA
 | Unit tests for HDC ops, bit accounting, channels, splits | yes |
 | Streamlit lab for scans, live channel, curves | yes |
 
-Later stages in the brief that are still open: a hardware radio trace (this VM has no SDR). Stage 8 here is an uncoded BPSK/QPSK + AWGN/Rayleigh model, not over-the-air captures. Real 2D LiDAR is wired as `semantic2d_v1` (derived place labels).
+Later stages in the brief that are still open: a hardware radio trace (this VM has no SDR). Stage 8 here is an uncoded BPSK/QPSK + AWGN/Rayleigh model, not over-the-air captures. Real 2D LiDAR: `semantic2d_v1` (derived place labels) and `lidardataframes_v1` (author place labels, 411 frames).
 
 ## Setup
 
@@ -70,6 +70,11 @@ python scripts/run_k16_sector_encode.py
 python scripts/prepare_semantic2d.py
 python scripts/run_k16_semantic2d.py
 # Does not overwrite sim_indoor JSONL.
+
+# Real 2D LiDAR — LidarDataFrames author place labels (Kaggle FourClassDS.csv)
+python scripts/prepare_lidardataframes.py
+python scripts/run_k16_lidardataframes.py
+# Does not overwrite sim_indoor or semantic2d JSONL.
 
 # Stage 4 remake — few-shot OOD at the 128 B operating point (k=1 / k=16 / linear)
 python scripts/run_k16_adaptation_128b.py

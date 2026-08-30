@@ -99,6 +99,8 @@ def main() -> None:
 
     if (processed_dir("semantic2d_v1") / "scans.npz").exists():
         available.append("semantic2d_v1")
+    if (processed_dir("lidardataframes_v1") / "scans.npz").exists():
+        available.append("lidardataframes_v1")
     data_name = st.sidebar.selectbox("Dataset", available, index=0)
     try:
         batch, splits, meta = _dataset(data_name)
