@@ -341,6 +341,8 @@ def _results() -> None:
         _chart(plr, "packet_loss_rate", "accuracy", "curve", "Accuracy vs packet loss")
     if "snr_db" in clean.columns:
         radio = clean[pd.to_numeric(clean["snr_db"], errors="coerce").notna()].copy()
+        if "sweep" in radio.columns and (radio["sweep"] == "k16_radio").any():
+            radio = radio[radio["sweep"] == "k16_radio"]
         if not radio.empty:
             kind = (
                 radio["channel_kind"].astype(str)
