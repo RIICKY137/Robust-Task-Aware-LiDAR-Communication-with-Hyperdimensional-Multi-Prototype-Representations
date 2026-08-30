@@ -891,6 +891,11 @@ def _plot_k16_noise(df: pd.DataFrame, fig: Path) -> None:
     else:
         burst_rows = pd.DataFrame()
     if not burst_rows.empty:
+        clean_128 = ber[(ber["budget_bytes"] == 128) & (ber["ber"] == 0)].copy()
+        if not clean_128.empty:
+            clean_128 = clean_128.copy()
+            clean_128["burst_length"] = 0
+            burst_rows = pd.concat([clean_128, burst_rows], ignore_index=True)
         id_ = burst_rows[burst_rows["split"] == "test_id"] if "split" in burst_rows.columns else burst_rows
         plot_metric_curves(
             id_,
@@ -905,6 +910,11 @@ def _plot_k16_noise(df: pd.DataFrame, fig: Path) -> None:
     if "noise_kind" in df.columns:
         plr_rows = df[df["noise_kind"].astype(str) == "plr"]
         if not plr_rows.empty:
+            clean_128 = ber[(ber["budget_bytes"] == 128) & (ber["ber"] == 0)].copy()
+            if not clean_128.empty:
+                clean_128 = clean_128.copy()
+                clean_128["packet_loss_rate"] = 0.0
+                plr_rows = pd.concat([clean_128, plr_rows], ignore_index=True)
             id_ = plr_rows[plr_rows["split"] == "test_id"] if "split" in plr_rows.columns else plr_rows
             plot_metric_curves(
                 id_,
