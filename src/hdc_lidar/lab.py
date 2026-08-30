@@ -436,6 +436,29 @@ def _results() -> None:
                     + "B"
                 )
             _chart(radio, "snr_db", "accuracy", "curve_r", "Accuracy vs Eb/N0 (radio)")
+    if "shots_per_class" in clean.columns and "new_acc" in clean.columns:
+        shots = clean[clean["shots_per_class"].notna() & clean["new_acc"].notna()].copy()
+        if not shots.empty:
+            hue = "method" if "method" in shots.columns else "curve"
+            if "sweep" in shots.columns and (shots["sweep"] == "k16_adaptation_128b").any():
+                _chart(
+                    shots[shots["sweep"] == "k16_adaptation_128b"],
+                    "shots_per_class",
+                    "new_acc",
+                    hue,
+                    "OOD few-shot at 128 B (k=1 / k=16 / linear)",
+                )
+            older = shots
+            if "sweep" in shots.columns:
+                older = shots[shots["sweep"].fillna("") != "k16_adaptation_128b"]
+            if not older.empty:
+                _chart(
+                    older,
+                    "shots_per_class",
+                    "new_acc",
+                    hue,
+                    "OOD few-shot at 512 B (multi-centroid)",
+                )
 
 
 if __name__ == "__main__":

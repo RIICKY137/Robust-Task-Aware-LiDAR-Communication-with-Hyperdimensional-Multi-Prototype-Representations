@@ -66,6 +66,10 @@ python scripts/run_k16_sensor.py
 python scripts/run_k16_sector_encode.py
 # Missing beams as NaN, not max-range. Do not overwrite k16_sensor.jsonl.
 
+# Stage 4 remake — few-shot OOD at the 128 B operating point (k=1 / k=16 / linear)
+python scripts/run_k16_adaptation_128b.py
+# Does not overwrite adaptation.jsonl or multicentroid_adaptation.jsonl.
+
 # Stage 4 — 10 / 50 / 100-shot OOD HDC vs 8-bit logistic vs hybrid
 python scripts/run_shift_adaptation.py
 

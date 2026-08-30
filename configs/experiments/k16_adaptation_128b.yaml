@@ -1,0 +1,10 @@
+name: k16_adaptation_128b
+budget_bytes: 128
+dimension: 1024
+seeds: [0, 1, 2]
+shots_per_class: [10, 50, 100]
+n_centroids: [1, 16]
+linear_head: true
+split_old: test_id
+split_new: test_ood
+note: Does not overwrite multicentroid_adaptation.jsonl or adaptation.jsonl.

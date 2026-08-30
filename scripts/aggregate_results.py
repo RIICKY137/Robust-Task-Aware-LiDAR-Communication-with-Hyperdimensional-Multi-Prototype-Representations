@@ -85,6 +85,7 @@ def main() -> None:
     k16_noise = load_jsonl(raw / "k16_noise.jsonl")
     k16_radio = load_jsonl(raw / "k16_radio.jsonl")
     k16_sector_encode = load_jsonl(raw / "k16_sector_encode.jsonl")
+    k16_adapt_128 = load_jsonl(raw / "k16_adaptation_128b.jsonl")
 
     if not bw.empty:
         bw = bw.copy()
@@ -328,6 +329,10 @@ def main() -> None:
         k16_sector_encode.to_csv(tables / "k16_sector_encode.csv", index=False)
         _plot_k16_sector_encode(k16_sector_encode, fig)
         _write_k16_sector_encode(k16_sector_encode, reports / "stage3_k16_sector_encode.md")
+    if not k16_adapt_128.empty:
+        k16_adapt_128.to_csv(tables / "k16_adaptation_128b.csv", index=False)
+        _plot_k16_adapt_128(k16_adapt_128, fig / "accuracy_k16_adaptation_128b.png")
+        _write_k16_adapt_128(k16_adapt_128, reports / "stage4_k16_adaptation_128b.md")
 
     _write_final(
         bw,
@@ -348,6 +353,7 @@ def main() -> None:
         k16_noise=k16_noise,
         k16_radio=k16_radio,
         k16_sector_encode=k16_sector_encode,
+        k16_adapt_128=k16_adapt_128,
     )
     print("reports updated")
 
@@ -1184,6 +1190,81 @@ def _write_k16_sector_encode(df: pd.DataFrame, path: Path) -> None:
     )
 
 
+def _plot_k16_adapt_128(adapt: pd.DataFrame, path: Path) -> None:
+    import matplotlib.pyplot as plt
+
+    fig, ax = plt.subplots(figsize=(7.2, 4.4))
+    fig.patch.set_facecolor("#020617")
+    ax.set_facecolor("#0b1220")
+    for method, sub in adapt.groupby("method"):
+        g = sub.groupby("shots_per_class")["new_acc"].agg(["mean", "std"]).reset_index()
+        start = float(sub["before_new_acc"].mean())
+        xs = [0, *g["shots_per_class"].tolist()]
+        ys = [start, *g["mean"].tolist()]
+        ax.plot(xs, ys, marker="o", label=str(method))
+        ax.fill_between(
+            g["shots_per_class"],
+            g["mean"] - g["std"].fillna(0),
+            g["mean"] + g["std"].fillna(0),
+            alpha=0.15,
+        )
+    ax.set_title("OOD few-shot at 128 B (k=1 / k=16 / linear)", color="#e2e8f0")
+    ax.set_xlabel("Shots per class", color="#94a3b8")
+    ax.set_ylabel("OOD accuracy", color="#94a3b8")
+    ax.tick_params(colors="#94a3b8")
+    ax.legend(facecolor="#0f172a", edgecolor="#1e293b", labelcolor="#e2e8f0")
+    for spine in ax.spines.values():
+        spine.set_color("#1e293b")
+    fig.tight_layout()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(path, dpi=150, facecolor=fig.get_facecolor())
+    plt.close(fig)
+
+
+def _write_k16_adapt_128(adapt: pd.DataFrame, path: Path) -> None:
+    cols = [
+        c
+        for c in [
+            "before_new_acc",
+            "new_acc",
+            "delta_new",
+            "before_old_acc",
+            "old_acc",
+            "forgetting",
+            "adapt_ms",
+        ]
+        if c in adapt.columns
+    ]
+    g = adapt.groupby(["method", "shots_per_class"])[cols].agg(["mean", "std"]).round(4).reset_index()
+    path.write_text(
+        "\n".join(
+            [
+                "# Few-shot OOD remake at 128 B",
+                "",
+                "Same protocol as `reports/stage4_multicentroid_adapt.md`, at the 128 B operating "
+                "point (`D=1024`). `hdc_k1` / `hdc_k16` add (and subtract the current prediction "
+                "from) the nearest class centroid. `hdc_linear` refits logistic regression on train "
+                "hypervectors plus the labeled shots. First-round `adaptation.jsonl` and "
+                "`multicentroid_adaptation.jsonl` are unchanged.",
+                "",
+                "Means over seeds:",
+                "",
+                _md_table(g),
+                "",
+                "Figure: `results/figures/accuracy_k16_adaptation_128b.png`.",
+                "",
+                "## Reading",
+                "",
+                "The question is Outcome C at 128 B: does a cheap centroid update still close the "
+                "OOD gap relative to refitting a linear head, and does shrinking D from 4096 to "
+                "1024 change the 512 B picture.",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+
 def _write_final(
     bw: pd.DataFrame,
     noise: pd.DataFrame,
@@ -1203,6 +1284,7 @@ def _write_final(
     k16_noise: pd.DataFrame | None = None,
     k16_radio: pd.DataFrame | None = None,
     k16_sector_encode: pd.DataFrame | None = None,
+    k16_adapt_128: pd.DataFrame | None = None,
 ) -> None:
     lines = [
         "# Working region of HDC for task-aware LiDAR communication",
@@ -1413,6 +1495,22 @@ def _write_final(
             .round(4)
         )
         lines += [_md_table(gs)]
+    if k16_adapt_128 is not None and not k16_adapt_128.empty:
+        lines += [
+            "## k=16 few-shot remake at 128 B",
+            "",
+            "See `reports/stage4_k16_adaptation_128b.md`. 10/50/100-shot OOD at the 128 B operating point.",
+            "",
+        ]
+        ga = (
+            k16_adapt_128.groupby(["method", "shots_per_class"])[
+                ["new_acc", "old_acc", "forgetting", "adapt_ms"]
+            ]
+            .mean()
+            .reset_index()
+            .round(4)
+        )
+        lines += [_md_table(ga)]
     if radio is not None and not radio.empty:
         lines += [
             "## Realistic radio (Stage 8)",
@@ -1437,7 +1535,7 @@ def _write_final(
         "| Burst / packet loss | k=16 holds 128-bit bursts and 20% packet loss at 128 B; a 512-bit burst (half the code) is a failure region |",
         "| Uncoded radio | k=16 stays flat at 128 B under BPSK-AWGN and block Rayleigh; matched BER tracks AWGN. Linear is hurt by clustered fades. |",
         "| Sensor dropout / scale | k=16 holds random beam drop. 30% sector drop with max-range fill is a fake opening (~0.39 ID). Skip/DROP recover ~0.90 ID / ~0.70–0.75 OOD. |",
-        "| Few-shot OOD | HDC updates are milliseconds vs seconds for a linear refit |",
+        "| Few-shot OOD | At 512 B, centroid add is ms vs a linear refit. 128 B remake: `reports/stage4_k16_adaptation_128b.md`. |",
         "| Hybrid encoder | Prototype head ~0.73–0.80; linear head on HDC codes can match/beat hashing |",
         "| Multi-centroid | k>1 lifts prototype accuracy while staying BER-flat; see OOD vs linear in the table |",
         "",
