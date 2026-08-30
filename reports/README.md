@@ -1,5 +1,9 @@
 # Reports
 
+Narrative milestone (not generated from JSONL):
+
+- `milestone_summary.md` — 阶段性总结：问题、协议、A/B/C/D、工作区与未验证项
+
 Generated files:
 
 - `data_report.md` — Stage 0 dataset, labels, splits, class balance (`python scripts/prepare_data.py`)
