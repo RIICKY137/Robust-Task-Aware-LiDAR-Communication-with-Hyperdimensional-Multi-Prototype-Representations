@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "hdc-task-aware-lidar"
 version = "0.1.0"
-description = "HDC-based task-aware LiDAR communication for bandwidth-constrained, noisy robotic systems"
+description = "Robust task-aware LiDAR communication with hyperdimensional multi-prototype representations"
 readme = "README.md"
 requires-python = ">=3.11"
 authors = [{ name = "Peichen Liu" }]

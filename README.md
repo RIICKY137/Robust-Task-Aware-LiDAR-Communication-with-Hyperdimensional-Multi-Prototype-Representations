@@ -1,8 +1,10 @@
-# HDC Task-Aware LiDAR Communication
+# Robust Task-Aware LiDAR Communication with Hyperdimensional Multi-Prototype Representations
 
 面向带宽受限、信道不稳定机器人系统的 **HDC 任务感知 LiDAR 通信** 研究仓库。
 
-HDC-based task-aware communication for bandwidth-constrained robotic LiDAR. The receiver **does not reconstruct the scan**. It classifies place type from the transmitted representation: corridor, room, doorway, open area, or cluttered area.
+Public repository: [RIICKY137/Robust-Task-Aware-LiDAR-Communication-with-Hyperdimensional-Multi-Prototype-Representations](https://github.com/RIICKY137/Robust-Task-Aware-LiDAR-Communication-with-Hyperdimensional-Multi-Prototype-Representations).
+
+The receiver **does not reconstruct the scan**. It classifies place type from a hyperdimensional multi-prototype representation: corridor, room, doorway, open area, or cluttered area.
 
 This repository follows the project brief: compare HDC against quantization, PCA, autoencoder, and binary hashing under a **shared byte budget**, then stress the bitstream with bit flips, bursts, and packet loss, then measure few-shot prototype updates after environment shift. HDC is **not** assumed to win. The goal is the **operating region** (bandwidth × noise × adaptation cost) where it helps or fails.
 

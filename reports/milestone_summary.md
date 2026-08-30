@@ -1,4 +1,4 @@
-# 阶段性总结 — HDC 任务感知 LiDAR 通信
+# 阶段性总结 — Robust Task-Aware LiDAR Communication with Hyperdimensional Multi-Prototype Representations
 
 **日期：** 2026-08-30  
 **工作点：** 每帧 **128 字节**，HDC 维数 `D=1024`，接收端每类 **k=16** 质心，无效光束 **skip**（或 DROP）  

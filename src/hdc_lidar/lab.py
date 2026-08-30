@@ -75,7 +75,7 @@ def _fit_method(
 
 def main() -> None:
     st.set_page_config(
-        page_title="HDC Task-Aware LiDAR Communication",
+        page_title="Robust Task-Aware LiDAR Communication",
         page_icon="📡",
         layout="wide",
     )
@@ -88,9 +88,9 @@ def main() -> None:
         """,
         unsafe_allow_html=True,
     )
-    st.title("HDC Task-Aware LiDAR Communication")
+    st.title("Robust Task-Aware LiDAR Communication")
     st.caption(
-        "Bandwidth-constrained, noisy robotic LiDAR · environment classification without point-cloud reconstruction"
+        "Hyperdimensional multi-prototype representations · classify place without reconstructing the scan"
     )
 
     page = st.sidebar.radio("Lab", ["Overview", "Scan viewer", "Live channel", "Results"])
