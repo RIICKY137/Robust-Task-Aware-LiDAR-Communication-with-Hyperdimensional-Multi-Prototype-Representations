@@ -9,6 +9,11 @@ def test_named_sensor_changes_scan_but_clean_does_not():
     np.testing.assert_array_equal(clean, x)
     dropped = apply_named("beam_drop", x, rng, max_range=10.0, drop_rate=1.0)
     assert float(dropped.max()) == 10.0
+    nan_drop = apply_named("beam_drop", x, rng, max_range=10.0, drop_rate=1.0, invalid="nan")
+    assert np.isnan(nan_drop).all()
+    sector = apply_named("sector_drop", x, rng, max_range=10.0, fraction=0.25, invalid="nan")
+    assert np.isnan(sector).any()
+    assert np.isfinite(sector).any()
     far = np.full((2, 8), 8.0, dtype=np.float32)
     clipped = apply_named("clip", far, rng, max_range=10.0, clip_to=6.0)
     assert float(clipped.max()) == 6.0

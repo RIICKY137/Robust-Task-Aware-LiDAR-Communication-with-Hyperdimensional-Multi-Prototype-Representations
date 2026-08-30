@@ -24,7 +24,8 @@ class BinaryHashMethod(BaseMethod):
 
     def _hash(self, ranges: np.ndarray) -> np.ndarray:
         assert self.R is not None
-        x = ranges.astype(np.float32) / self.max_range
+        x = np.asarray(ranges, dtype=np.float32)
+        x = np.where(np.isfinite(x), x, self.max_range) / self.max_range
         if x.ndim == 1:
             bits = np.sign(self.R @ x)
             bits[bits == 0] = 1

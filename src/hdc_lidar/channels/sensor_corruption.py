@@ -61,11 +61,16 @@ def apply_named(
     ranges: np.ndarray,
     rng: np.random.Generator,
     max_range: float,
+    invalid: str = "max_range",
     **params,
 ) -> np.ndarray:
-    """Dispatch a Stage-3 sensor corruption. `name` is the condition id."""
+    """Dispatch a Stage-3 sensor corruption. `name` is the condition id.
+
+    `invalid` is how missing beams are stored: `max_range` (legacy fill, looks
+    like open space) or `nan` (encoder can skip / DROP-bind them).
+    """
     x = np.asarray(ranges, dtype=np.float32)
-    fill = float(max_range)
+    fill = np.float32(np.nan) if invalid == "nan" else float(max_range)
     if name in {"clean", "none"}:
         return x.copy()
     if name == "beam_drop":

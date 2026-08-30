@@ -84,6 +84,7 @@ def main() -> None:
     k16_sensor = load_jsonl(raw / "k16_sensor.jsonl")
     k16_noise = load_jsonl(raw / "k16_noise.jsonl")
     k16_radio = load_jsonl(raw / "k16_radio.jsonl")
+    k16_sector_encode = load_jsonl(raw / "k16_sector_encode.jsonl")
 
     if not bw.empty:
         bw = bw.copy()
@@ -317,6 +318,17 @@ def main() -> None:
         _plot_k16_radio(k16_radio, fig)
         _write_k16_radio(k16_radio, reports / "stage8_k16_radio.md")
 
+    if not k16_sector_encode.empty:
+        k16_sector_encode = k16_sector_encode.copy()
+        k16_sector_encode["method_label"] = (
+            k16_sector_encode["method_tag"]
+            if "method_tag" in k16_sector_encode.columns
+            else method_label(k16_sector_encode)
+        )
+        k16_sector_encode.to_csv(tables / "k16_sector_encode.csv", index=False)
+        _plot_k16_sector_encode(k16_sector_encode, fig)
+        _write_k16_sector_encode(k16_sector_encode, reports / "stage3_k16_sector_encode.md")
+
     _write_final(
         bw,
         noise,
@@ -335,6 +347,7 @@ def main() -> None:
         k16_sensor=k16_sensor,
         k16_noise=k16_noise,
         k16_radio=k16_radio,
+        k16_sector_encode=k16_sector_encode,
     )
     print("reports updated")
 
@@ -1096,6 +1109,67 @@ def _write_k16_radio(df: pd.DataFrame, path: Path) -> None:
     )
 
 
+def _plot_k16_sector_encode(df: pd.DataFrame, fig: Path) -> None:
+    id_ = df[df["split"] == "test_id"] if "split" in df.columns else df
+    for kind, title, fname in (
+        ("sector", "Sector dropout: skip / DROP vs max-range fill (512 B, test_id)", "accuracy_k16_sector_encode.png"),
+        ("beam", "Random beam dropout after encoder fix (512 B, test_id)", "accuracy_k16_sector_encode_beam.png"),
+    ):
+        rows = []
+        for _, r in id_.iterrows():
+            rate = _sensor_rate(r.get("sensor", ""), kind)
+            if rate is None:
+                continue
+            rows.append({**r.to_dict(), "drop_rate": rate})
+        if not rows:
+            continue
+        plot_metric_curves(
+            pd.DataFrame(rows),
+            x="drop_rate",
+            y="accuracy",
+            hue="method_label",
+            title=title,
+            path=fig / fname,
+            xlabel="Dropped fraction of beams",
+            ylabel="Accuracy",
+        )
+
+
+def _write_k16_sector_encode(df: pd.DataFrame, path: Path) -> None:
+    g = (
+        df.groupby(["split", "method_label", "sensor"])[["accuracy", "macro_f1"]]
+        .mean()
+        .reset_index()
+        .round(4)
+    )
+    path.write_text(
+        "\n".join(
+            [
+                "# Sector-drop encoder fix — skip / DROP vs max-range fill",
+                "",
+                "k=16 at 512 B (`D=4096`). `fill` writes missing beams as max-range (a fake opening). "
+                "`skip` omits non-finite beams from the bundle. `drop` binds a dedicated DROP item. "
+                "First-round `k16_sensor.jsonl` is unchanged.",
+                "",
+                "Means over seeds:",
+                "",
+                _md_table(g),
+                "",
+                "Figures: `results/figures/accuracy_k16_sector_encode.png`, "
+                "`results/figures/accuracy_k16_sector_encode_beam.png`.",
+                "",
+                "## Reading",
+                "",
+                "The question is whether telling the encoder that a hole is invalid "
+                "(instead of open space) recovers sector-drop accuracy without hurting "
+                "random beam dropout or the clean channel.",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+
 def _write_final(
     bw: pd.DataFrame,
     noise: pd.DataFrame,
@@ -1114,6 +1188,7 @@ def _write_final(
     k16_sensor: pd.DataFrame | None = None,
     k16_noise: pd.DataFrame | None = None,
     k16_radio: pd.DataFrame | None = None,
+    k16_sector_encode: pd.DataFrame | None = None,
 ) -> None:
     lines = [
         "# Working region of HDC for task-aware LiDAR communication",
@@ -1309,6 +1384,21 @@ def _write_final(
             .round(4)
         )
         lines += [_md_table(gr)]
+    if k16_sector_encode is not None and not k16_sector_encode.empty:
+        lines += [
+            "## Sector-drop encoder fix",
+            "",
+            "See `reports/stage3_k16_sector_encode.md`. Skip / DROP-bind invalid beams vs max-range fill.",
+            "",
+        ]
+        hue = "method_label" if "method_label" in k16_sector_encode.columns else "method"
+        gs = (
+            k16_sector_encode.groupby(["split", hue, "sensor"])["accuracy"]
+            .mean()
+            .reset_index()
+            .round(4)
+        )
+        lines += [_md_table(gs)]
     if radio is not None and not radio.empty:
         lines += [
             "## Realistic radio (Stage 8)",
@@ -1332,7 +1422,7 @@ def _write_final(
         "| Random BER | k=16 stays flat at 128 B (~0.95). Linear head is not holographic at that budget. PCM cliffs. |",
         "| Burst / packet loss | k=16 holds 128-bit bursts and 20% packet loss at 128 B; a 512-bit burst (half the code) is a failure region |",
         "| Uncoded radio | k=16 stays flat at 128 B under BPSK-AWGN and block Rayleigh; matched BER tracks AWGN. Linear is hurt by clustered fades. |",
-        "| Sensor dropout / scale | k=16 holds under random beam drop; 30% contiguous sector drop is a failure region. First-round Stage 3 used k=1. |",
+        "| Sensor dropout / scale | k=16 holds random beam drop. 30% sector drop was a fake opening; skip/DROP remake in `reports/stage3_k16_sector_encode.md`. |",
         "| Few-shot OOD | HDC updates are milliseconds vs seconds for a linear refit |",
         "| Hybrid encoder | Prototype head ~0.73–0.80; linear head on HDC codes can match/beat hashing |",
         "| Multi-centroid | k>1 lifts prototype accuracy while staying BER-flat; see OOD vs linear in the table |",

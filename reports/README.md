@@ -9,6 +9,7 @@ Generated files:
 - `stage2_k16_noise.md` — k=16 remake at 128 B (BER + compact burst/PLR) and 512 B BER
 - `stage3_shift.md` — sensor corruption and OOD floorplan (first-round, k=1)
 - `stage3_k16_sensor.md` — k=16 remake of beam / sector dropout
+- `stage3_k16_sector_encode.md` — skip / DROP invalid beams vs max-range fill
 - `stage4_adaptation.md` — 10/50/100-shot HDC vs linear head vs hybrid
 - `stage5_hybrid.md` — sector-stat neural-HDC (Stage 5)
 - `stage5_hybrid_lidar.md` — full-scan LiDAR hybrid ± record bundle

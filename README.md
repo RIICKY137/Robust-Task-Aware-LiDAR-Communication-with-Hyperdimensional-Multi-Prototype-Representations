@@ -62,6 +62,9 @@ python scripts/run_sensor_shift.py
 # Stage 3 remake — k=16 under beam / sector dropout
 python scripts/run_k16_sensor.py
 
+# Sector-drop encoder fix — skip / DROP vs max-range fill
+python scripts/run_k16_sector_encode.py
+
 # Stage 4 — 10 / 50 / 100-shot OOD HDC vs 8-bit logistic vs hybrid
 python scripts/run_shift_adaptation.py
 

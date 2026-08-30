@@ -95,17 +95,43 @@ def encode_scans(
     max_range: float,
     n_levels: int,
     binarize_out: bool = True,
+    invalid_mode: str = "fill",
+    drop_hv: np.ndarray | None = None,
 ) -> np.ndarray:
-    """Vectorized record-based encoding: H = sign(sum_i P_i ⊗ L_{Q(r_i)}).
+    """Record-based encoding: H = sign(sum_i P_i ⊗ L_{Q(r_i)}).
 
-    ranges: (N, B), position_hv: (B, D), level_hv: (L, D)
+    Non-finite ranges are invalid beams. `invalid_mode`:
+    - fill: treat as max_range (legacy; a sensor hole looks like open space)
+    - skip: omit the beam from the bundle
+    - drop: bind P_i ⊗ D with a dedicated DROP item memory
     """
     n_samples, n_beams = ranges.shape
     dimension = position_hv.shape[1]
-    q = quantize_ranges(ranges, max_range, n_levels)
+    mode = str(invalid_mode or "fill")
+    finite = np.isfinite(ranges)
+    if mode == "fill":
+        safe = np.where(finite, ranges, max_range)
+        finite = np.ones(ranges.shape, dtype=bool)
+    else:
+        safe = np.where(finite, ranges, 0.0)
+    q = quantize_ranges(safe, max_range, n_levels)
     acc = np.zeros((n_samples, dimension), dtype=np.int32)
+    drop_row = None if drop_hv is None else np.asarray(drop_hv, dtype=np.int8).reshape(-1)
     for beam in range(n_beams):
-        acc += position_hv[beam] * level_hv[q[:, beam]]
+        term = position_hv[beam] * level_hv[q[:, beam]]
+        if mode == "fill":
+            acc += term
+            continue
+        valid = finite[:, beam].astype(np.int32)[:, None]
+        if mode == "skip":
+            acc += term * valid
+        elif mode == "drop":
+            if drop_row is None:
+                raise ValueError("invalid_mode='drop' requires drop_hv")
+            dropped = position_hv[beam] * drop_row
+            acc += term * valid + dropped * (1 - valid)
+        else:
+            raise ValueError(f"unknown invalid_mode {invalid_mode}")
     if not binarize_out:
         return acc
     return binarize(acc)

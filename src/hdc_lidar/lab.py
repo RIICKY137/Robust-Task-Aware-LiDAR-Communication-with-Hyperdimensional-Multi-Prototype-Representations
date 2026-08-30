@@ -11,6 +11,7 @@ import streamlit as st
 
 from hdc_lidar import ID_TO_LABEL, LABELS
 from hdc_lidar.channels import apply_channel
+from hdc_lidar.channels.sensor_corruption import apply_named
 from hdc_lidar.data.io import load_dataset
 from hdc_lidar.evaluation.metrics import task_metrics
 from hdc_lidar.features.viz import CLASS_COLORS, polar_xy
@@ -47,6 +48,7 @@ def _fit_method(
     hybrid_mix: str = "none",
     hybrid_mode: str = "task",
     n_centroids: int = 1,
+    invalid_mode: str = "fill",
 ):
     batch, splits, _ = _dataset()
     train = batch.subset(splits["train"])
@@ -56,6 +58,7 @@ def _fit_method(
     if name == "pure_hdc":
         kwargs["head"] = hdc_head
         kwargs["n_centroids"] = n_centroids
+        kwargs["invalid_mode"] = invalid_mode
     if name == "hybrid_hdc":
         kwargs["mode"] = hybrid_mode
         kwargs["frontend"] = hybrid_frontend
@@ -204,11 +207,23 @@ def _live(batch, splits) -> None:
     dim = st.select_slider("HDC / hash dimension cap", options=[1024, 4096, 8192], value=4096)
     hdc_head = "prototype"
     n_centroids = 1
+    invalid_mode = "fill"
     hybrid_frontend, hybrid_head, hybrid_mix, hybrid_mode = "sector", "prototype", "none", "task"
     if method_name == "pure_hdc":
         hdc_head = st.selectbox("HDC head", ["prototype", "linear"], index=0)
         if hdc_head == "prototype":
             n_centroids = int(st.select_slider("Centroids per class", options=[1, 4, 8, 16], value=1))
+        invalid_mode = st.selectbox(
+            "Invalid beams",
+            ["fill", "skip", "drop"],
+            index=0,
+            help="fill treats holes as max-range. skip omits them. drop binds a DROP item.",
+        )
+    sensor_hole = st.selectbox(
+        "Sensor hole on this scan",
+        ["none", "sector_drop_0.3_fill", "sector_drop_0.3_nan", "beam_drop_0.3_fill", "beam_drop_0.3_nan"],
+        index=0,
+    )
     if method_name == "hybrid_hdc":
         hybrid_mode = st.selectbox("Hybrid train", ["task", "frozen"], index=0)
         hybrid_frontend = st.selectbox("LiDAR frontend", ["scan", "sector"], index=0)
@@ -227,12 +242,28 @@ def _live(batch, splits) -> None:
         hybrid_mix,
         hybrid_mode,
         n_centroids,
+        invalid_mode,
     )
 
     idx = splits[split]
     k = st.slider("Scan index in split", 0, int(len(idx) - 1), 0)
     j = int(idx[k])
-    rec = method.encode_one(batch.ranges[j])
+    scan = batch.ranges[j]
+    if sensor_hole != "none":
+        name, frac, how = sensor_hole.rsplit("_", 2)
+        kind = "sector_drop" if name.startswith("sector") else "beam_drop"
+        params = {"fraction": float(frac)} if kind == "sector_drop" else {"drop_rate": float(frac)}
+        scan = apply_named(
+            kind,
+            scan.reshape(1, -1),
+            np.random.default_rng(seed + k),
+            batch.max_range,
+            invalid="nan" if how == "nan" else "max_range",
+            **params,
+        )[0]
+        if method_name != "pure_hdc" or invalid_mode == "fill":
+            scan = np.where(np.isfinite(scan), scan, batch.max_range)
+    rec = method.encode_one(scan)
     if radio_mod != "none":
         channel = ChannelConfig(
             modulation=radio_mod,
@@ -271,7 +302,22 @@ def _live(batch, splits) -> None:
 
     if st.button("Score entire split under this channel", type="primary"):
         test = batch.subset(idx)
-        records = method.encode_batch(test.ranges)
+        ranges = test.ranges
+        if sensor_hole != "none":
+            name, frac, how = sensor_hole.rsplit("_", 2)
+            kind = "sector_drop" if name.startswith("sector") else "beam_drop"
+            params = {"fraction": float(frac)} if kind == "sector_drop" else {"drop_rate": float(frac)}
+            ranges = apply_named(
+                kind,
+                ranges,
+                np.random.default_rng(seed),
+                test.max_range,
+                invalid="nan" if how == "nan" else "max_range",
+                **params,
+            )
+            if method_name != "pure_hdc" or invalid_mode == "fill":
+                ranges = np.where(np.isfinite(ranges), ranges, test.max_range)
+        records = method.encode_batch(ranges)
         rng = np.random.default_rng(seed)
         payloads = [apply_channel(r.payload, channel, rng) for r in records]
         yhat = method.predict_from_payloads(payloads, test.n_beams, test.max_range)
@@ -314,11 +360,40 @@ def _results() -> None:
         bw = bw[bw["sensor"].isna() | (bw["sensor"] == "clean") | (bw["sensor"] == "")]
     if "budget_bytes" in bw.columns:
         _chart(bw, "budget_bytes", "accuracy", "curve", "Accuracy vs communication budget (clean channel)")
+    if "sweep" in clean.columns and (clean["sweep"] == "k16_sector_encode").any():
+        enc = clean[clean["sweep"] == "k16_sector_encode"]
+        sector_fix = enc[
+            enc["sensor"].fillna("").astype(str).str.startswith("sector_drop")
+            | (enc["sensor"].fillna("") == "clean")
+        ]
+        beam_fix = enc[
+            enc["sensor"].fillna("").astype(str).str.startswith("beam_drop")
+            | (enc["sensor"].fillna("") == "clean")
+        ]
+        if not sector_fix.empty:
+            _chart(
+                sector_fix,
+                "sensor",
+                "accuracy",
+                "curve",
+                "Sector drop after encoder fix (skip / DROP / fill)",
+            )
+        if not beam_fix.empty:
+            _chart(
+                beam_fix,
+                "sensor",
+                "accuracy",
+                "curve",
+                "Random beam drop after encoder fix",
+            )
     if "sensor" in clean.columns:
-        drop = clean[clean["sensor"].fillna("").astype(str).str.startswith("beam_drop")]
+        sensor_src = clean
+        if "sweep" in clean.columns and (clean["sweep"] == "k16_sensor").any():
+            sensor_src = clean[clean["sweep"] == "k16_sensor"]
+        drop = sensor_src[sensor_src["sensor"].fillna("").astype(str).str.startswith("beam_drop")]
         if not drop.empty:
             _chart(drop, "sensor", "accuracy", "curve", "Accuracy vs beam dropout (sensor, BER = 0)")
-        sector = clean[clean["sensor"].fillna("").astype(str).str.startswith("sector_drop")]
+        sector = sensor_src[sensor_src["sensor"].fillna("").astype(str).str.startswith("sector_drop")]
         if not sector.empty:
             _chart(sector, "sensor", "accuracy", "curve", "Accuracy vs sector dropout (sensor, BER = 0)")
     noise = clean[(clean["burst_length"] == 0) & (clean["packet_loss_rate"] == 0)].copy()

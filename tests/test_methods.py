@@ -122,3 +122,50 @@ def test_lidar_hybrid_scan_and_record_bundle():
     pred = lidar.predict_from_payloads([b], 36, 10.0)
     assert pred.shape == (1,)
 
+
+def test_valid_max_range_is_not_an_invalid_beam():
+    rng = np.random.default_rng(6)
+    n_beams = 36
+    ranges = rng.uniform(1.0, 4.0, size=(40, n_beams)).astype(np.float32)
+    ranges[:, 10:16] = 10.0
+    labels = np.repeat(np.arange(5), 8)
+    fill = PureHDCMethod(
+        budget_bytes=64, seed=0, dimension=256, n_levels=8, n_centroids=1, invalid_mode="fill"
+    )
+    skip = PureHDCMethod(
+        budget_bytes=64, seed=0, dimension=256, n_levels=8, n_centroids=1, invalid_mode="skip"
+    )
+    fill.fit(ranges, labels, 10.0)
+    skip.fit(ranges, labels, 10.0)
+    probe = ranges[0:1]
+    np.testing.assert_array_equal(fill.encode_matrix(probe), skip.encode_matrix(probe))
+
+
+def test_fill_maps_nan_to_max_range_but_skip_does_not():
+    rng = np.random.default_rng(7)
+    n_beams = 36
+    ranges = rng.uniform(1.0, 4.0, size=(40, n_beams)).astype(np.float32)
+    labels = np.repeat(np.arange(5), 8)
+    fill = PureHDCMethod(
+        budget_bytes=64, seed=0, dimension=256, n_levels=8, n_centroids=1, invalid_mode="fill"
+    )
+    skip = PureHDCMethod(
+        budget_bytes=64, seed=0, dimension=256, n_levels=8, n_centroids=1, invalid_mode="skip"
+    )
+    fill.fit(ranges, labels, 10.0)
+    skip.fit(ranges, labels, 10.0)
+    probe = ranges[0].copy()
+    as_max = probe.copy()
+    as_max[6:18] = 10.0
+    as_nan = probe.copy()
+    as_nan[6:18] = np.nan
+    np.testing.assert_array_equal(
+        fill.encode_matrix(as_nan.reshape(1, -1)),
+        fill.encode_matrix(as_max.reshape(1, -1)),
+    )
+    assert not np.array_equal(
+        skip.encode_matrix(as_nan.reshape(1, -1)),
+        skip.encode_matrix(as_max.reshape(1, -1)),
+    )
+
+

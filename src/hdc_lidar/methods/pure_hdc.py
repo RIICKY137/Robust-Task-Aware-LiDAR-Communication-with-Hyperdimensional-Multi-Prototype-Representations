@@ -35,6 +35,7 @@ class PureHDCMethod(BaseMethod):
         region_size: int = 1,
         head: str = "prototype",
         n_centroids: int = 1,
+        invalid_mode: str = "fill",
     ):
         super().__init__(budget_bytes, seed)
         dim_cap = max(8, budget_bytes * 8)
@@ -46,9 +47,14 @@ class PureHDCMethod(BaseMethod):
         self.region_size = max(1, int(region_size))
         self.head = head
         self.n_centroids = max(1, int(n_centroids))
+        mode = str(invalid_mode or "fill")
+        if mode not in {"fill", "skip", "drop"}:
+            raise ValueError(f"unknown invalid_mode {invalid_mode}")
+        self.invalid_mode = mode
         self.clf: LogisticRegression | None = None
         self.position_hv: np.ndarray | None = None
         self.level_hv: np.ndarray | None = None
+        self.drop_hv: np.ndarray | None = None
         self.prototypes: np.ndarray | None = None  # analog (C, D), class-wide sum
         self.counts: np.ndarray | None = None
         self.centroids: np.ndarray | None = None  # (C, K, D) when K > 1
@@ -64,6 +70,10 @@ class PureHDCMethod(BaseMethod):
             self.level_hv = locality_preserving_levels(self.n_levels, self.dimension, rng)
         else:
             self.level_hv = random_hv(self.n_levels, self.dimension, rng)
+        if self.invalid_mode == "drop":
+            self.drop_hv = random_hv(1, self.dimension, rng)[0]
+        else:
+            self.drop_hv = None
 
     def _maybe_pool(self, ranges: np.ndarray) -> np.ndarray:
         if self.region_size <= 1:
@@ -73,7 +83,10 @@ class PureHDCMethod(BaseMethod):
         if pad:
             ranges = np.pad(ranges, ((0, 0), (0, pad)), mode="edge")
         grouped = ranges.reshape(n, -1, self.region_size)
-        return grouped.mean(axis=2)
+        if self.invalid_mode == "fill":
+            return grouped.mean(axis=2)
+        with np.errstate(all="ignore"):
+            return np.nanmean(grouped, axis=2)
 
     def encode_matrix(self, ranges: np.ndarray, binarize: bool = True) -> np.ndarray:
         assert self.position_hv is not None and self.level_hv is not None
@@ -84,7 +97,14 @@ class PureHDCMethod(BaseMethod):
                 pooled, ((0, 0), (0, n_pos - pooled.shape[1])), mode="edge"
             )
         return encode_scans(
-            pooled, self.position_hv, self.level_hv, self.max_range, self.n_levels, binarize_out=binarize
+            pooled,
+            self.position_hv,
+            self.level_hv,
+            self.max_range,
+            self.n_levels,
+            binarize_out=binarize,
+            invalid_mode=self.invalid_mode,
+            drop_hv=self.drop_hv,
         )
 
     def fit(self, ranges: np.ndarray, labels: np.ndarray, max_range: float) -> None:
@@ -247,4 +267,6 @@ class PureHDCMethod(BaseMethod):
             parts.append(self.position_hv)
         if self.level_hv is not None:
             parts.append(self.level_hv)
+        if self.drop_hv is not None:
+            parts.append(self.drop_hv)
         return self.nbytes_of(*parts) if parts else 0
