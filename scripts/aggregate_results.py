@@ -1082,8 +1082,13 @@ def _write_k16_radio(df: pd.DataFrame, path: Path) -> None:
                 "",
                 "## Reading",
                 "",
-                "See the tables. The question is whether i.i.d. BER overstated k=16 at 128 B "
-                "once errors come from BPSK-AWGN or block Rayleigh instead of a coin-flip.",
+                "- **i.i.d. BER did not overstate k=16 at 128 B.** BPSK-AWGN and `matched_ber` overlay. "
+                "Block Rayleigh at Eb/N0 = −2 dB has empirical BER ~0.19 (worse than the BER=0.10 coin-flip) "
+                "and k=16 stays ~0.95 in-distribution.",
+                "- **The linear head is the one radio structure hurts.** At 128 B, Rayleigh −2 dB drops it "
+                "below matched BER (clustered errors, not just the mean BER). Hashing degrades; PCM cliffs.",
+                "- 32-symbol coherence on a 1024-bit code is ~32-bit clusters, closer to the 128-bit burst "
+                "k=16 already survived than to the 512-bit half-code wipe.",
                 "",
             ]
         ),
@@ -1326,7 +1331,7 @@ def _write_final(
         "| Clean 2D scan | k=1 prototype loses to hashing; k=16 / linear close that gap. See k=16 bandwidth remake. |",
         "| Random BER | k=16 stays flat at 128 B (~0.95). Linear head is not holographic at that budget. PCM cliffs. |",
         "| Burst / packet loss | k=16 holds 128-bit bursts and 20% packet loss at 128 B; a 512-bit burst (half the code) is a failure region |",
-        "| Uncoded radio | k=16 remake at 128 B: `reports/stage8_k16_radio.md`. First-round Stage 8 used k=1 at 512 B. |",
+        "| Uncoded radio | k=16 stays flat at 128 B under BPSK-AWGN and block Rayleigh; matched BER tracks AWGN. Linear is hurt by clustered fades. |",
         "| Sensor dropout / scale | k=16 holds under random beam drop; 30% contiguous sector drop is a failure region. First-round Stage 3 used k=1. |",
         "| Few-shot OOD | HDC updates are milliseconds vs seconds for a linear refit |",
         "| Hybrid encoder | Prototype head ~0.73–0.80; linear head on HDC codes can match/beat hashing |",
