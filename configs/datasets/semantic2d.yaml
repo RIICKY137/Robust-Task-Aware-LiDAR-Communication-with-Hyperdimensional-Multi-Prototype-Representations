@@ -1,0 +1,6 @@
+name: semantic2d_v1
+source: zenodo:10.5281/zenodo.13730200
+n_beams: 180
+max_range_m: 20.0
+label_source: derived_from_range_and_object_labels
+note: Invalid beams stored as NaN. Place classes are not author-annotated.

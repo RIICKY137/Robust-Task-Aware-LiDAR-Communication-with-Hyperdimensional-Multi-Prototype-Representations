@@ -32,8 +32,8 @@ def _load_results() -> pd.DataFrame:
 
 
 @st.cache_data(show_spinner=False)
-def _dataset():
-    return load_dataset("sim_indoor_v1")
+def _dataset(name: str = "sim_indoor_v1"):
+    return load_dataset(name)
 
 
 @st.cache_resource(show_spinner="Fitting encoder and classifier…")
@@ -49,8 +49,9 @@ def _fit_method(
     hybrid_mode: str = "task",
     n_centroids: int = 1,
     invalid_mode: str = "fill",
+    dataset_name: str = "sim_indoor_v1",
 ):
-    batch, splits, _ = _dataset()
+    batch, splits, _ = _dataset(dataset_name)
     train = batch.subset(splits["train"])
     kwargs: dict = {}
     if name in {"pure_hdc", "binary_hash", "hybrid_hdc"}:
@@ -65,7 +66,10 @@ def _fit_method(
         kwargs["head"] = hybrid_head
         kwargs["mix"] = hybrid_mix
     method = build_method(name, budget, seed=seed, **kwargs)
-    method.fit(train.ranges, train.labels, train.max_range)
+    ranges = train.ranges
+    if name != "pure_hdc":
+        ranges = np.where(np.isfinite(ranges), ranges, train.max_range)
+    method.fit(ranges, train.labels, train.max_range)
     return method
 
 
@@ -89,19 +93,24 @@ def main() -> None:
         "Bandwidth-constrained, noisy robotic LiDAR · environment classification without point-cloud reconstruction"
     )
 
+    page = st.sidebar.radio("Lab", ["Overview", "Scan viewer", "Live channel", "Results"])
+    available = ["sim_indoor_v1"]
+    from hdc_lidar.data.io import processed_dir
+
+    if (processed_dir("semantic2d_v1") / "scans.npz").exists():
+        available.append("semantic2d_v1")
+    data_name = st.sidebar.selectbox("Dataset", available, index=0)
     try:
-        batch, splits, meta = _dataset()
+        batch, splits, meta = _dataset(data_name)
     except FileNotFoundError:
         st.error("No processed dataset yet. Run `python scripts/prepare_data.py` first.")
         return
-
-    page = st.sidebar.radio("Lab", ["Overview", "Scan viewer", "Live channel", "Results"])
     if page == "Overview":
         _overview(batch, splits, meta)
     elif page == "Scan viewer":
-        _viewer(batch, splits)
+        _viewer(batch, splits, meta)
     elif page == "Live channel":
-        _live(batch, splits)
+        _live(batch, splits, data_name)
     else:
         _results()
 
@@ -114,9 +123,17 @@ def _overview(batch, splits, meta) -> None:
     c3.metric("Max range", f"{batch.max_range:.1f} m")
     c4.metric("Classes", str(len(LABELS)))
     st.write(
-        "Labels are geometric place categories on simulated indoor trajectories. "
-        "Splits are by trajectory and building: `test_id` holds out a path in known buildings; "
-        "`test_ood` is a held-out floorplan (`env_ood`)."
+        meta.get(
+            "label_source",
+            "Labels are geometric place categories. Splits are by trajectory and building: "
+            "`test_id` holds out a path in known buildings; `test_ood` is a held-out floorplan.",
+        )
+        if meta.get("label_source")
+        else (
+            "Labels are geometric place categories on simulated indoor trajectories. "
+            "Splits are by trajectory and building: `test_id` holds out a path in known buildings; "
+            "`test_ood` is a held-out floorplan (`env_ood`)."
+        )
     )
     rows = []
     for split, idx in splits.items():
@@ -137,7 +154,7 @@ def _overview(batch, splits, meta) -> None:
     )
 
 
-def _viewer(batch, splits) -> None:
+def _viewer(batch, splits, meta: dict | None = None) -> None:
     split = st.selectbox("Split", list(splits.keys()))
     label = st.selectbox("Class", LABELS)
     idx = splits[split]
@@ -149,7 +166,8 @@ def _viewer(batch, splits) -> None:
     k = st.slider("Sample", 0, int(len(local) - 1), 0)
     j = int(local[k])
     ranges = batch.ranges[j]
-    x, y = polar_xy(ranges)
+    fov = None if meta is None else meta.get("fov_deg")
+    x, y = polar_xy(ranges, fov_deg=float(fov) if fov is not None else None)
     import plotly.graph_objects as go
 
     fig = go.Figure()
@@ -180,13 +198,14 @@ def _viewer(batch, splits) -> None:
         {
             "label": label,
             "pose_xy_yaw": [float(v) for v in batch.poses[j]],
-            "min_range": float(ranges.min()),
-            "mean_range": float(ranges.mean()),
+            "min_range": float(np.nanmin(ranges)),
+            "mean_range": float(np.nanmean(ranges)),
+            "n_invalid": int(np.sum(~np.isfinite(ranges))),
         }
     )
 
 
-def _live(batch, splits) -> None:
+def _live(batch, splits, dataset_name: str = "sim_indoor_v1") -> None:
     st.subheader("Transmit representation → noisy channel → classify")
     c1, c2, c3 = st.columns(3)
     method_name = c1.selectbox(
@@ -243,6 +262,7 @@ def _live(batch, splits) -> None:
         hybrid_mode,
         n_centroids,
         invalid_mode,
+        dataset_name,
     )
 
     idx = splits[split]
@@ -261,8 +281,8 @@ def _live(batch, splits) -> None:
             invalid="nan" if how == "nan" else "max_range",
             **params,
         )[0]
-        if method_name != "pure_hdc" or invalid_mode == "fill":
-            scan = np.where(np.isfinite(scan), scan, batch.max_range)
+    if method_name != "pure_hdc" or invalid_mode == "fill":
+        scan = np.where(np.isfinite(scan), scan, batch.max_range)
     rec = method.encode_one(scan)
     if radio_mod != "none":
         channel = ChannelConfig(

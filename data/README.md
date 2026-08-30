@@ -21,4 +21,12 @@ Do not reshuffle frames across those JSON split files.
 
 ## Swapping in a real dataset
 
-Add a loader under `src/hdc_lidar/data/` that emits the same `ScanBatch` fields (`ranges`, `labels`, `env_ids`, `traj_ids`, `sample_ids`, `poses`) and write new freeze files under `data/splits/<name>/`. Prefer public corpora that already have place or scene tags. If you only have trajectories plus a map, derive labels from map regions and split by session or building — never by random frame order.
+`semantic2d_v1` is wired from Semantic2D (Zenodo 10.5281/zenodo.13730200). Place labels are **derived** from the range profile plus object labels. Invalid beams are NaN.
+
+```bash
+# archive is gitignored under data/raw/semantic2d/
+python scripts/prepare_semantic2d.py
+python scripts/run_k16_semantic2d.py
+```
+
+Add another loader under `src/hdc_lidar/data/` that emits the same `ScanBatch` fields and freeze files under `data/splits/<name>/`. Prefer public corpora that already have place or scene tags. If you only have trajectories plus a map, derive labels from map regions and split by session or building — never by random frame order.

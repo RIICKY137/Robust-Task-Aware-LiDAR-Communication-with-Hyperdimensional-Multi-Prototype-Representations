@@ -40,6 +40,11 @@ def save_dataset(arrays: dict, name: str = "sim_indoor_v1") -> Path:
         "label_names": arrays["label_names"].tolist(),
         "seed": int(arrays["seed"]),
         "split_counts": {k: len(v) for k, v in mapping.items()},
+        **(
+            {"fov_deg": float(arrays["fov_deg"])}
+            if "fov_deg" in arrays
+            else {}
+        ),
     }
     (split_root / "meta.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
     return out

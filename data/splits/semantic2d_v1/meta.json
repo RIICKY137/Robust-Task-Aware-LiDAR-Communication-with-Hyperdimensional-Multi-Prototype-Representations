@@ -1,0 +1,27 @@
+{
+  "dataset": "semantic2d_v1",
+  "n_beams": 180,
+  "max_range": 20.0,
+  "n_samples": 8265,
+  "label_names": [
+    "corridor",
+    "room",
+    "doorway",
+    "open_area",
+    "cluttered_area"
+  ],
+  "seed": 7,
+  "split_counts": {
+    "train": 4203,
+    "test_id": 1053,
+    "test_ood": 3009
+  },
+  "fov_deg": 270.0,
+  "ood_envs": [
+    "eng_9th",
+    "lobby"
+  ],
+  "label_source": "derived_from_range_and_semantic2d_objects",
+  "source": "zenodo:10.5281/zenodo.13730200",
+  "stride": 10
+}

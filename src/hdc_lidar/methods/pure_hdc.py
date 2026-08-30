@@ -108,6 +108,7 @@ class PureHDCMethod(BaseMethod):
         )
 
     def fit(self, ranges: np.ndarray, labels: np.ndarray, max_range: float) -> None:
+        self.n_classes = int(np.max(labels) + 1) if len(labels) else len(LABELS)
         self.max_range = float(max_range)
         self._prepare_item_memory(ranges.shape[1])
         hv = self.encode_matrix(ranges)
