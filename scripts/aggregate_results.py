@@ -80,6 +80,8 @@ def main() -> None:
     radio = load_jsonl(raw / "radio_sweep.jsonl")
     adapt_raw = load_jsonl(raw / "adaptation.jsonl")
     mc_adapt = load_jsonl(raw / "multicentroid_adaptation.jsonl")
+    k16_bw = load_jsonl(raw / "k16_bandwidth.jsonl")
+    k16_sensor = load_jsonl(raw / "k16_sensor.jsonl")
 
     if not bw.empty:
         bw = bw.copy()
@@ -256,6 +258,45 @@ def main() -> None:
         mc_adapt.to_csv(tables / "multicentroid_adaptation.csv", index=False)
         _write_mc_adapt(mc_adapt, reports / "stage4_multicentroid_adapt.md")
         _plot_mc_adapt(mc_adapt, fig / "accuracy_multicentroid_adaptation.png")
+
+    if not k16_bw.empty:
+        k16_bw = k16_bw.copy()
+        k16_bw["method_label"] = k16_bw["method_tag"] if "method_tag" in k16_bw.columns else method_label(k16_bw)
+        id_bw = k16_bw[k16_bw["split"] == "test_id"] if "split" in k16_bw.columns else k16_bw
+        plot_metric_curves(
+            id_bw,
+            x="budget_bytes",
+            y="accuracy",
+            hue="method_label",
+            title="k=16 HDC vs hashing / PCM (clean channel, test_id)",
+            path=fig / "accuracy_k16_bandwidth.png",
+            xlabel="Budget (bytes / sample)",
+            ylabel="Accuracy",
+        )
+        ood_bw = k16_bw[k16_bw["split"] == "test_ood"] if "split" in k16_bw.columns else pd.DataFrame()
+        if not ood_bw.empty:
+            plot_metric_curves(
+                ood_bw,
+                x="budget_bytes",
+                y="accuracy",
+                hue="method_label",
+                title="k=16 HDC vs hashing / PCM (clean channel, test_ood)",
+                path=fig / "accuracy_k16_bandwidth_ood.png",
+                xlabel="Budget (bytes / sample)",
+                ylabel="Accuracy",
+            )
+        k16_bw.to_csv(tables / "k16_bandwidth.csv", index=False)
+        _write_k16_bandwidth(k16_bw, reports / "stage1_k16_bandwidth.md")
+
+    if not k16_sensor.empty:
+        k16_sensor = k16_sensor.copy()
+        k16_sensor["method_label"] = (
+            k16_sensor["method_tag"] if "method_tag" in k16_sensor.columns else method_label(k16_sensor)
+        )
+        k16_sensor.to_csv(tables / "k16_sensor.csv", index=False)
+        _plot_k16_dropout(k16_sensor, fig)
+        _write_k16_sensor(k16_sensor, reports / "stage3_k16_sensor.md")
+
     _write_final(
         bw,
         noise,
@@ -270,6 +311,8 @@ def main() -> None:
         hybrid_lidar=hybrid_lidar,
         multicentroid=multicentroid,
         mc_adapt=mc_adapt,
+        k16_bw=k16_bw,
+        k16_sensor=k16_sensor,
     )
     print("reports updated")
 
@@ -675,6 +718,109 @@ def _write_stage8(radio: pd.DataFrame, path: Path) -> None:
     )
 
 
+def _sensor_rate(label: str, kind: str) -> float | None:
+    s = str(label)
+    if s == "clean":
+        return 0.0
+    if kind == "beam" and s.startswith("beam_drop:"):
+        return float(s.split("=", 1)[1])
+    if kind == "sector" and s.startswith("sector_drop:"):
+        return float(s.split("=", 1)[1])
+    return None
+
+
+def _plot_k16_dropout(df: pd.DataFrame, fig: Path) -> None:
+    id_ = df[df["split"] == "test_id"] if "split" in df.columns else df
+    for kind, title, fname in (
+        ("beam", "Beam dropout vs accuracy (512 B, test_id, BER = 0)", "accuracy_k16_beam_drop.png"),
+        ("sector", "Sector dropout vs accuracy (512 B, test_id, BER = 0)", "accuracy_k16_sector_drop.png"),
+    ):
+        rows = []
+        for _, r in id_.iterrows():
+            rate = _sensor_rate(r.get("sensor", ""), kind)
+            if rate is None:
+                continue
+            rows.append({**r.to_dict(), "drop_rate": rate})
+        if not rows:
+            continue
+        sub = pd.DataFrame(rows)
+        plot_metric_curves(
+            sub,
+            x="drop_rate",
+            y="accuracy",
+            hue="method_label",
+            title=title,
+            path=fig / fname,
+            xlabel="Dropped fraction of beams",
+            ylabel="Accuracy",
+        )
+
+
+def _write_k16_bandwidth(df: pd.DataFrame, path: Path) -> None:
+    g = (
+        df.groupby(["split", "method_label", "budget_bytes"], dropna=False)[["accuracy", "macro_f1", "actual_bytes"]]
+        .mean()
+        .reset_index()
+        .round(4)
+    )
+    path.write_text(
+        "\n".join(
+            [
+                "# Stage 1 remake — k=16 HDC vs bandwidth",
+                "",
+                "Clean channel (BER = 0). Dimension fills the budget (`D = 8 × bytes`): "
+                "128 B → 1024, 512 B → 4096, 2048 B → 16384. The payload is still **one** "
+                "hypervector per scan; `k` is the number of centroids at the receiver. "
+                "First-round `bandwidth_sweep.jsonl` is left unchanged.",
+                "",
+                "Means over seeds:",
+                "",
+                _md_table(g),
+                "",
+                "Figures: `results/figures/accuracy_k16_bandwidth.png`, "
+                "`results/figures/accuracy_k16_bandwidth_ood.png`.",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+
+def _write_k16_sensor(df: pd.DataFrame, path: Path) -> None:
+    id_ = df[df["split"] == "test_id"] if "split" in df.columns else df
+    ood = df[df["split"] == "test_ood"] if "split" in df.columns else pd.DataFrame()
+    g_id = (
+        id_.groupby(["method_label", "sensor"])[["accuracy", "macro_f1"]]
+        .mean()
+        .reset_index()
+        .round(4)
+    )
+    parts = [
+        "# Stage 3 remake — k=16 HDC under sensor dropout",
+        "",
+        "Corruptions hit the LiDAR scan **before** encoding. Budget 512 bytes, `D=4096`, BER = 0. "
+        "Compared with k=1 prototypes, a linear head, hashing, and 8-bit PCM. "
+        "First-round `sensor_shift.jsonl` is left unchanged.",
+        "",
+        "In-distribution (`test_id`), mean over seeds:",
+        "",
+        _md_table(g_id),
+        "",
+        "Figures: `results/figures/accuracy_k16_beam_drop.png`, "
+        "`results/figures/accuracy_k16_sector_drop.png`.",
+        "",
+    ]
+    if not ood.empty:
+        g_ood = (
+            ood.groupby(["method_label", "sensor"])[["accuracy", "macro_f1"]]
+            .mean()
+            .reset_index()
+            .round(4)
+        )
+        parts += ["OOD (`test_ood`), mean over seeds:", "", _md_table(g_ood), ""]
+    path.write_text("\n".join(parts), encoding="utf-8")
+
+
 def _write_final(
     bw: pd.DataFrame,
     noise: pd.DataFrame,
@@ -689,6 +835,8 @@ def _write_final(
     hybrid_lidar: pd.DataFrame | None = None,
     multicentroid: pd.DataFrame | None = None,
     mc_adapt: pd.DataFrame | None = None,
+    k16_bw: pd.DataFrame | None = None,
+    k16_sensor: pd.DataFrame | None = None,
 ) -> None:
     lines = [
         "# Working region of HDC for task-aware LiDAR communication",
@@ -706,7 +854,10 @@ def _write_final(
         "",
         "## RQ1 — bandwidth",
         "",
-        "See `reports/stage1_bandwidth.md`. On this 180-beam scan, 8-bit PCM saturates at ~188 bytes. Pure HDC is not a compression win (Outcome A fails). Binary hashing leads on a clean channel.",
+        "See `reports/stage1_bandwidth.md` for the first-round matrix (single prototype). "
+        "On this 180-beam scan, 8-bit PCM saturates at ~188 bytes. A **single** HDC prototype "
+        "is not a compression win (Outcome A fails for k=1). The k=16 remake is "
+        "`reports/stage1_k16_bandwidth.md`.",
         "",
         "## RQ2 — communication noise",
         "",
@@ -746,7 +897,7 @@ def _write_final(
     lines += [
         "## RQ3 — shift and adaptation",
         "",
-        "Sensor corruptions (pre-encoder) and OOD floorplan: `reports/stage3_shift.md`.",
+        "Sensor corruptions (pre-encoder) and OOD floorplan: `reports/stage3_shift.md` (k=1) and `reports/stage3_k16_sensor.md` (k=16 remake).",
         "Few-shot prototype / head updates: `reports/stage4_adaptation.md`.",
         "",
     ]
@@ -818,6 +969,38 @@ def _write_final(
             .round(4)
         )
         lines += [_md_table(ga)]
+    if k16_bw is not None and not k16_bw.empty:
+        lines += [
+            "## k=16 bandwidth remake",
+            "",
+            "See `reports/stage1_k16_bandwidth.md`. Same payload family as Stage 1, with k=16 centroids, linear head, hashing, and 8-bit PCM. Dimension fills the budget.",
+            "",
+        ]
+        gb = (
+            k16_bw.groupby(["split", "method_label" if "method_label" in k16_bw.columns else "method", "budget_bytes"])[
+                "accuracy"
+            ]
+            .mean()
+            .reset_index()
+            .round(4)
+        )
+        lines += [_md_table(gb)]
+    if k16_sensor is not None and not k16_sensor.empty:
+        lines += [
+            "## k=16 sensor dropout remake",
+            "",
+            "See `reports/stage3_k16_sensor.md`. Beam and sector dropout before encoding, 512 bytes.",
+            "",
+        ]
+        hue = "method_label" if "method_label" in k16_sensor.columns else "method"
+        gs = (
+            k16_sensor.groupby(["split", hue, "sensor"])["accuracy"]
+            .mean()
+            .reset_index()
+            .round(4)
+        )
+        drop = gs[gs["sensor"].astype(str).str.contains("beam_drop|sector_drop|clean", regex=True)]
+        lines += [_md_table(drop if not drop.empty else gs)]
     if radio is not None and not radio.empty:
         lines += [
             "## Realistic radio (Stage 8)",
@@ -837,11 +1020,11 @@ def _write_final(
         "",
         "| Regime | Current reading |",
         "|---|---|",
-        "| Clean 2D scan | Hashing / AE beat pure HDC |",
-        "| Random BER | Pure HDC almost flat; PCM/PCA cliff |",
+        "| Clean 2D scan | k=1 prototype loses to hashing; k=16 / linear close that gap. See k=16 bandwidth remake. |",
+        "| Random BER | Pure HDC (any k) almost flat; PCM/PCA cliff |",
         "| Burst / packet loss | Binary codes degrade slower than float PCA; interleave hurts PCM |",
         "| Uncoded radio | Pure HDC stays flat under BPSK/QPSK AWGN and block Rayleigh; PCM/PCA still cliff. Matched i.i.d. BER tracks AWGN. |",
-        "| Sensor dropout / scale | See Stage 3; not billed as communication noise |",
+        "| Sensor dropout / scale | k=16 remake in `reports/stage3_k16_sensor.md`; first-round Stage 3 used k=1 |",
         "| Few-shot OOD | HDC updates are milliseconds vs seconds for a linear refit |",
         "| Hybrid encoder | Prototype head ~0.73–0.80; linear head on HDC codes can match/beat hashing |",
         "| Multi-centroid | k>1 lifts prototype accuracy while staying BER-flat; see OOD vs linear in the table |",

@@ -75,6 +75,8 @@ def run_cell(
             "interleave": channel.interleave,
             "n_bursts": channel.n_bursts,
             "hybrid_mode": getattr(method, "mode", None),
+            "hdc_head": getattr(method, "head", None),
+            "n_centroids": getattr(method, "n_centroids", None),
         },
     )
     return row, {"metrics": metrics, "pred": np.asarray(pred), "method": method}

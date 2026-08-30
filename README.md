@@ -42,8 +42,11 @@ python scripts/prepare_data.py
 python scripts/train_baselines.py
 pytest
 
-# Stage 1 — Accuracy–Bandwidth (BER = 0)
+# Stage 1 — Accuracy–Bandwidth (BER = 0). First-round used k=1 prototypes.
 python scripts/run_bandwidth_sweep.py
+
+# Stage 1 remake — k=16 / linear / hashing / 8-bit at 128 / 512 / 2048 B
+python scripts/run_k16_bandwidth.py
 
 # Stage 2 — Accuracy–BER at 512 bytes
 python scripts/run_noise_sweep.py
@@ -52,6 +55,9 @@ python scripts/run_packet_loss_sweep.py
 
 # Stage 3 — sensor dropout / scale / OOD floorplan (not mixed with BER)
 python scripts/run_sensor_shift.py
+
+# Stage 3 remake — k=16 under beam / sector dropout
+python scripts/run_k16_sensor.py
 
 # Stage 4 — 10 / 50 / 100-shot OOD HDC vs 8-bit logistic vs hybrid
 python scripts/run_shift_adaptation.py

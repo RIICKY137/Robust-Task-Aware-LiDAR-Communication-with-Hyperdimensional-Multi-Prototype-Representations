@@ -82,6 +82,24 @@ def test_multicentroid_uses_several_prototypes_per_class():
     assert int(k2.centroid_counts.sum()) == int(before_counts.sum()) + 1
 
 
+def test_k16_dimension_fills_and_caps_budget():
+    rng = np.random.default_rng(5)
+    ranges = rng.uniform(0.5, 8.0, size=(50, 36)).astype(np.float32)
+    labels = np.repeat(np.arange(5), 10)
+    m = PureHDCMethod(
+        budget_bytes=128, seed=0, dimension=4096, n_levels=8, n_centroids=16
+    )
+    m.fit(ranges, labels, 10.0)
+    assert m.dimension == 1024
+    rec = m.encode_one(ranges[0])
+    assert rec.n_payload_bits == 1024
+    assert rec.total_bytes <= 128 + 1
+    assert m.centroids is not None
+    assert m.centroids.shape == (5, 16, 1024)
+    pred = m.predict_from_payloads([rec.payload], 36, 10.0)
+    assert pred.shape == (1,)
+
+
 def test_lidar_hybrid_scan_and_record_bundle():
     from hdc_lidar.methods.hybrid_hdc import HybridHDCMethod
 

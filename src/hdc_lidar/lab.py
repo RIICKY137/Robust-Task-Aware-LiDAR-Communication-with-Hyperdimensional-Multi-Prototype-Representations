@@ -304,10 +304,23 @@ def _results() -> None:
         if col not in clean.columns:
             clean[col] = default
         clean[col] = pd.to_numeric(clean[col], errors="coerce").fillna(default)
+    if "method_tag" in clean.columns:
+        clean["curve"] = clean["method_tag"].where(clean["method_tag"].notna(), clean["method"])
+    else:
+        clean["curve"] = clean["method"]
 
     bw = clean[(clean["ber"] == 0) & (clean["burst_length"] == 0) & (clean["packet_loss_rate"] == 0)]
+    if "sensor" in bw.columns:
+        bw = bw[bw["sensor"].isna() | (bw["sensor"] == "clean") | (bw["sensor"] == "")]
     if "budget_bytes" in bw.columns:
-        _chart(bw, "budget_bytes", "accuracy", "method", "Accuracy vs communication budget (clean channel)")
+        _chart(bw, "budget_bytes", "accuracy", "curve", "Accuracy vs communication budget (clean channel)")
+    if "sensor" in clean.columns:
+        drop = clean[clean["sensor"].fillna("").astype(str).str.startswith("beam_drop")]
+        if not drop.empty:
+            _chart(drop, "sensor", "accuracy", "curve", "Accuracy vs beam dropout (sensor, BER = 0)")
+        sector = clean[clean["sensor"].fillna("").astype(str).str.startswith("sector_drop")]
+        if not sector.empty:
+            _chart(sector, "sensor", "accuracy", "curve", "Accuracy vs sector dropout (sensor, BER = 0)")
     _chart(
         clean[(clean["burst_length"] == 0) & (clean["packet_loss_rate"] == 0)],
         "ber",
