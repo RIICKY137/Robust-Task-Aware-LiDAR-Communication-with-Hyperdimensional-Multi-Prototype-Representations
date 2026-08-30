@@ -814,6 +814,43 @@ See `reports/stage0_semantic2d.md`. 128 B remake on real scans with derived plac
 | test_ood | quantized | 0.0500 | 0.1681 |
 | test_ood | quantized | 0.1000 | 0.1401 |
 
+## Real 2D LiDAR (LidarDataFrames, author labels)
+
+See `reports/stage0_lidardataframes.md`. 128 B remake on 411 author-labeled scans. `test_ood` is i.i.d., not a building shift.
+
+| split | method_label | ber | accuracy |
+| --- | --- | --- | --- |
+| test_id | binary_hash | 0.0000 | 0.8594 |
+| test_id | binary_hash | 0.0500 | 0.7952 |
+| test_id | binary_hash | 0.1000 | 0.7028 |
+| test_id | hdc_k1 | 0.0000 | 0.9679 |
+| test_id | hdc_k1 | 0.0500 | 0.9639 |
+| test_id | hdc_k1 | 0.1000 | 0.9518 |
+| test_id | hdc_k16 | 0.0000 | 0.9679 |
+| test_id | hdc_k16 | 0.0500 | 0.9639 |
+| test_id | hdc_k16 | 0.1000 | 0.9719 |
+| test_id | hdc_linear | 0.0000 | 0.9759 |
+| test_id | hdc_linear | 0.0500 | 0.9558 |
+| test_id | hdc_linear | 0.1000 | 0.9679 |
+| test_id | quantized | 0.0000 | 0.9036 |
+| test_id | quantized | 0.0500 | 0.5984 |
+| test_id | quantized | 0.1000 | 0.4177 |
+| test_ood | binary_hash | 0.0000 | 0.8008 |
+| test_ood | binary_hash | 0.0500 | 0.7805 |
+| test_ood | binary_hash | 0.1000 | 0.6870 |
+| test_ood | hdc_k1 | 0.0000 | 0.8984 |
+| test_ood | hdc_k1 | 0.0500 | 0.8984 |
+| test_ood | hdc_k1 | 0.1000 | 0.9065 |
+| test_ood | hdc_k16 | 0.0000 | 0.9472 |
+| test_ood | hdc_k16 | 0.0500 | 0.9390 |
+| test_ood | hdc_k16 | 0.1000 | 0.9431 |
+| test_ood | hdc_linear | 0.0000 | 0.9756 |
+| test_ood | hdc_linear | 0.0500 | 0.9756 |
+| test_ood | hdc_linear | 0.1000 | 0.9715 |
+| test_ood | quantized | 0.0000 | 0.8537 |
+| test_ood | quantized | 0.0500 | 0.5488 |
+| test_ood | quantized | 0.1000 | 0.4228 |
+
 ## Realistic radio (Stage 8)
 
 See `reports/stage8_radio.md`. Uncoded BPSK/QPSK hard decisions vs matched i.i.d. BER at the same Eb/N0.
@@ -926,9 +963,9 @@ See `reports/stage8_radio.md`. Uncoded BPSK/QPSK hard decisions vs matched i.i.d
 | Burst / packet loss | k=16 holds 128-bit bursts and 20% packet loss at 128 B; a 512-bit burst (half the code) is a failure region |
 | Uncoded radio | k=16 stays flat at 128 B under BPSK-AWGN and block Rayleigh; matched BER tracks AWGN. Linear is hurt by clustered fades. |
 | Sensor dropout / scale | k=16 holds random beam drop. 30% sector drop with max-range fill is a fake opening (~0.39 ID). Skip/DROP recover ~0.90 ID / ~0.70–0.75 OOD. |
-| Real 2D LiDAR | Semantic2D 128 B: k=16 ID ~0.50 and BER-flat, **not** the sim ~0.95. OOD is near majority. Labels are derived. |
+| Real 2D LiDAR | Semantic2D (derived labels) ID ~0.50. LidarDataFrames (author labels, 411 frames): `reports/stage0_lidardataframes.md`. |
 | Hybrid encoder | Prototype head ~0.73–0.80; linear head on HDC codes can match/beat hashing |
 | Multi-centroid | k>1 lifts prototype accuracy while staying BER-flat; see OOD vs linear in the table |
 
-Configs in `configs/`. Frozen splits in `data/splits/sim_indoor_v1/` and `data/splits/semantic2d_v1/`.
+Configs in `configs/`. Frozen splits in `data/splits/sim_indoor_v1/`, `semantic2d_v1/`, and `lidardataframes_v1/`.
 

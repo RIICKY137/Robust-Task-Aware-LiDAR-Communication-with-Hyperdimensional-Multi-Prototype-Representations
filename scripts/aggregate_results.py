@@ -1507,7 +1507,13 @@ def _write_k16_lidardataframes(df: pd.DataFrame, path: Path) -> None:
                 f"- **BER = 0.10, test_id:** k=16 {fmt(id10['k16'])}, hashing {fmt(id10['hash'])}, "
                 f"linear {fmt(id10['lin'])}, PCM {fmt(id10['pcm'])}.",
                 "",
-                "Do not treat this as a replacement for Semantic2D scale or a building-shift OOD test.",
+                "On this small, balanced, author-labeled set the clean-channel ceiling is back "
+                "near the simulator (~0.97). k=16 and linear both sit there and stay BER-flat; "
+                "PCM still cliffs. That supports the Semantic2D reading: ~0.50 there was the "
+                "derived labels, not 'real LiDAR cannot be classified at 128 B'.",
+                "",
+                "Caveats: 411 frames, four classes, i.i.d. holdout, authors already imputed "
+                "missing returns. This is not a building-shift OOD test and not Semantic2D scale.",
                 "",
             ]
         ),
@@ -1818,7 +1824,7 @@ def _write_final(
         "| Burst / packet loss | k=16 holds 128-bit bursts and 20% packet loss at 128 B; a 512-bit burst (half the code) is a failure region |",
         "| Uncoded radio | k=16 stays flat at 128 B under BPSK-AWGN and block Rayleigh; matched BER tracks AWGN. Linear is hurt by clustered fades. |",
         "| Sensor dropout / scale | k=16 holds random beam drop. 30% sector drop with max-range fill is a fake opening (~0.39 ID). Skip/DROP recover ~0.90 ID / ~0.70–0.75 OOD. |",
-        "| Real 2D LiDAR | Semantic2D (derived labels) ID ~0.50. LidarDataFrames (author labels, 411 frames): `reports/stage0_lidardataframes.md`. |",
+        "| Real 2D LiDAR | Semantic2D derived labels ID ~0.50. LidarDataFrames author labels (411 frames): k=16 / linear ~0.97, PCM cliffs. Not a building OOD. |",
         "| Hybrid encoder | Prototype head ~0.73–0.80; linear head on HDC codes can match/beat hashing |",
         "| Multi-centroid | k>1 lifts prototype accuracy while staying BER-flat; see OOD vs linear in the table |",
         "",
