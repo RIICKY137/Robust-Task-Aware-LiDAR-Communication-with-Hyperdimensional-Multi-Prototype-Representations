@@ -82,6 +82,7 @@ def main() -> None:
     mc_adapt = load_jsonl(raw / "multicentroid_adaptation.jsonl")
     k16_bw = load_jsonl(raw / "k16_bandwidth.jsonl")
     k16_sensor = load_jsonl(raw / "k16_sensor.jsonl")
+    k16_noise = load_jsonl(raw / "k16_noise.jsonl")
 
     if not bw.empty:
         bw = bw.copy()
@@ -297,6 +298,15 @@ def main() -> None:
         _plot_k16_dropout(k16_sensor, fig)
         _write_k16_sensor(k16_sensor, reports / "stage3_k16_sensor.md")
 
+    if not k16_noise.empty:
+        k16_noise = k16_noise.copy()
+        k16_noise["method_label"] = (
+            k16_noise["method_tag"] if "method_tag" in k16_noise.columns else method_label(k16_noise)
+        )
+        k16_noise.to_csv(tables / "k16_noise.csv", index=False)
+        _plot_k16_noise(k16_noise, fig)
+        _write_k16_noise(k16_noise, reports / "stage2_k16_noise.md")
+
     _write_final(
         bw,
         noise,
@@ -313,6 +323,7 @@ def main() -> None:
         mc_adapt=mc_adapt,
         k16_bw=k16_bw,
         k16_sensor=k16_sensor,
+        k16_noise=k16_noise,
     )
     print("reports updated")
 
@@ -842,6 +853,138 @@ def _write_k16_sensor(df: pd.DataFrame, path: Path) -> None:
     path.write_text("\n".join(parts), encoding="utf-8")
 
 
+def _k16_ber_rows(df: pd.DataFrame) -> pd.DataFrame:
+    out = df.copy()
+    if "noise_kind" in out.columns:
+        return out[out["noise_kind"].astype(str) == "ber"]
+    for col, default in (("burst_length", 0), ("packet_loss_rate", 0.0)):
+        if col not in out.columns:
+            out[col] = default
+        out[col] = pd.to_numeric(out[col], errors="coerce").fillna(default)
+    return out[(out["burst_length"] == 0) & (out["packet_loss_rate"] == 0)]
+
+
+def _plot_k16_noise(df: pd.DataFrame, fig: Path) -> None:
+    ber = _k16_ber_rows(df)
+    for split, suffix, split_title in (
+        ("test_id", "", "test_id"),
+        ("test_ood", "_ood", "test_ood"),
+    ):
+        sub_split = ber[ber["split"] == split] if "split" in ber.columns else ber
+        for budget in (128, 512):
+            sub = sub_split[sub_split["budget_bytes"] == budget] if "budget_bytes" in sub_split.columns else sub_split
+            if sub.empty:
+                continue
+            plot_metric_curves(
+                sub,
+                x="ber",
+                y="accuracy",
+                hue="method_label",
+                title=f"k=16 HDC vs BER ({budget} B, {split_title})",
+                path=fig / f"accuracy_k16_ber_{budget}{suffix}.png",
+                xlabel="BER",
+                ylabel="Accuracy",
+            )
+    burst = df.copy()
+    if "noise_kind" in burst.columns:
+        burst_rows = burst[burst["noise_kind"].astype(str) == "burst"]
+    else:
+        burst_rows = pd.DataFrame()
+    if not burst_rows.empty:
+        id_ = burst_rows[burst_rows["split"] == "test_id"] if "split" in burst_rows.columns else burst_rows
+        plot_metric_curves(
+            id_,
+            x="burst_length",
+            y="accuracy",
+            hue="method_label",
+            title="k=16 HDC vs burst length (128 B, test_id)",
+            path=fig / "accuracy_k16_burst_128.png",
+            xlabel="Burst length (bits)",
+            ylabel="Accuracy",
+        )
+    if "noise_kind" in df.columns:
+        plr_rows = df[df["noise_kind"].astype(str) == "plr"]
+        if not plr_rows.empty:
+            id_ = plr_rows[plr_rows["split"] == "test_id"] if "split" in plr_rows.columns else plr_rows
+            plot_metric_curves(
+                id_,
+                x="packet_loss_rate",
+                y="accuracy",
+                hue="method_label",
+                title="k=16 HDC vs packet loss (128 B, 32-byte packets, test_id)",
+                path=fig / "accuracy_k16_plr_128.png",
+                xlabel="Packet loss rate",
+                ylabel="Accuracy",
+            )
+
+
+def _write_k16_noise(df: pd.DataFrame, path: Path) -> None:
+    ber = _k16_ber_rows(df)
+    g_ber = (
+        ber.groupby(["split", "method_label", "budget_bytes", "ber"], dropna=False)[["accuracy", "macro_f1"]]
+        .mean()
+        .reset_index()
+        .round(4)
+    )
+    parts = [
+        "# Stage 2 remake — k=16 HDC under bitstream noise",
+        "",
+        "Dimension fills the budget: 128 B → `D=1024`, 512 B → `D=4096`. "
+        "The payload is still **one** hypervector per scan. "
+        "First-round `noise_sweep.jsonl` / `burst_sweep.jsonl` / `packet_loss_sweep.jsonl` are unchanged.",
+        "",
+        "BER means over seeds:",
+        "",
+        _md_table(g_ber),
+        "",
+        "Figures: `results/figures/accuracy_k16_ber_128.png`, "
+        "`results/figures/accuracy_k16_ber_512.png`, "
+        "`results/figures/accuracy_k16_ber_128_ood.png`, "
+        "`results/figures/accuracy_k16_ber_512_ood.png`.",
+        "",
+    ]
+    burst = df[df["noise_kind"].astype(str) == "burst"] if "noise_kind" in df.columns else pd.DataFrame()
+    if not burst.empty:
+        g_b = (
+            burst.groupby(["split", "method_label", "burst_length"])[["accuracy"]]
+            .mean()
+            .reset_index()
+            .round(4)
+        )
+        parts += [
+            "Burst (128 B only, one contiguous flip block, no interleave):",
+            "",
+            _md_table(g_b),
+            "",
+            "Figure: `results/figures/accuracy_k16_burst_128.png`.",
+            "",
+        ]
+    plr = df[df["noise_kind"].astype(str) == "plr"] if "noise_kind" in df.columns else pd.DataFrame()
+    if not plr.empty:
+        g_p = (
+            plr.groupby(["split", "method_label", "packet_loss_rate"])[["accuracy"]]
+            .mean()
+            .reset_index()
+            .round(4)
+        )
+        parts += [
+            "Packet loss (128 B only, 32-byte packets, zero-fill):",
+            "",
+            _md_table(g_p),
+            "",
+            "Figure: `results/figures/accuracy_k16_plr_128.png`.",
+            "",
+        ]
+    parts += [
+        "## Reading",
+        "",
+        "See the tables. The question is whether k=16 stays BER-flat at 128 B, "
+        "where the clean-channel accuracy already matches hashing at 2048 B.",
+        "",
+    ]
+    path.write_text("\n".join(parts), encoding="utf-8")
+
+
 def _write_final(
     bw: pd.DataFrame,
     noise: pd.DataFrame,
@@ -858,6 +1001,7 @@ def _write_final(
     mc_adapt: pd.DataFrame | None = None,
     k16_bw: pd.DataFrame | None = None,
     k16_sensor: pd.DataFrame | None = None,
+    k16_noise: pd.DataFrame | None = None,
 ) -> None:
     lines = [
         "# Working region of HDC for task-aware LiDAR communication",
@@ -1022,6 +1166,22 @@ def _write_final(
         )
         drop = gs[gs["sensor"].astype(str).str.contains("beam_drop|sector_drop|clean", regex=True)]
         lines += [_md_table(drop if not drop.empty else gs)]
+    if k16_noise is not None and not k16_noise.empty:
+        lines += [
+            "## k=16 communication-noise remake",
+            "",
+            "See `reports/stage2_k16_noise.md`. BER at 128 B and 512 B; burst and packet loss at 128 B.",
+            "",
+        ]
+        hue = "method_label" if "method_label" in k16_noise.columns else "method"
+        ber = _k16_ber_rows(k16_noise)
+        gb = (
+            ber.groupby(["split", hue, "budget_bytes", "ber"])["accuracy"]
+            .mean()
+            .reset_index()
+            .round(4)
+        )
+        lines += [_md_table(gb)]
     if radio is not None and not radio.empty:
         lines += [
             "## Realistic radio (Stage 8)",
@@ -1042,7 +1202,7 @@ def _write_final(
         "| Regime | Current reading |",
         "|---|---|",
         "| Clean 2D scan | k=1 prototype loses to hashing; k=16 / linear close that gap. See k=16 bandwidth remake. |",
-        "| Random BER | Pure HDC (any k) almost flat; PCM/PCA cliff |",
+        "| Random BER | k=16 remake at 128 B: `reports/stage2_k16_noise.md`. First-round Stage 2 used k=1 at 512 B. |",
         "| Burst / packet loss | Binary codes degrade slower than float PCA; interleave hurts PCM |",
         "| Uncoded radio | Pure HDC stays flat under BPSK/QPSK AWGN and block Rayleigh; PCM/PCA still cliff. Matched i.i.d. BER tracks AWGN. |",
         "| Sensor dropout / scale | k=16 holds under random beam drop; 30% contiguous sector drop is a failure region. First-round Stage 3 used k=1. |",

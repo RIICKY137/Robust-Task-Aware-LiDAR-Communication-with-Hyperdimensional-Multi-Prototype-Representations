@@ -6,6 +6,7 @@ Generated files:
 - `stage1_bandwidth.md` — clean-channel Accuracy–Bandwidth (`python scripts/aggregate_results.py`)
 - `stage1_k16_bandwidth.md` — k=16 / linear / hashing remake at 128 / 512 / 2048 B
 - `stage2_noise.md` — Accuracy–BER, burst, packet loss, packet+interleave
+- `stage2_k16_noise.md` — k=16 remake at 128 B (BER + compact burst/PLR) and 512 B BER
 - `stage3_shift.md` — sensor corruption and OOD floorplan (first-round, k=1)
 - `stage3_k16_sensor.md` — k=16 remake of beam / sector dropout
 - `stage4_adaptation.md` — 10/50/100-shot HDC vs linear head vs hybrid

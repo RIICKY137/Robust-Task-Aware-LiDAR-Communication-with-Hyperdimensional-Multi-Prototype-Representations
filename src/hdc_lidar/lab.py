@@ -321,27 +321,24 @@ def _results() -> None:
         sector = clean[clean["sensor"].fillna("").astype(str).str.startswith("sector_drop")]
         if not sector.empty:
             _chart(sector, "sensor", "accuracy", "curve", "Accuracy vs sector dropout (sensor, BER = 0)")
-    _chart(
-        clean[(clean["burst_length"] == 0) & (clean["packet_loss_rate"] == 0)],
-        "ber",
-        "accuracy",
-        "method",
-        "Accuracy vs bit error rate",
-    )
-    _chart(
-        clean[(clean["ber"] == 0) & (clean["packet_loss_rate"] == 0)],
-        "burst_length",
-        "accuracy",
-        "method",
-        "Accuracy vs burst length",
-    )
-    _chart(
-        clean[(clean["ber"] == 0) & (clean["burst_length"] == 0)],
-        "packet_loss_rate",
-        "accuracy",
-        "method",
-        "Accuracy vs packet loss",
-    )
+    noise = clean[(clean["burst_length"] == 0) & (clean["packet_loss_rate"] == 0)].copy()
+    burst = clean[(clean["ber"] == 0) & (clean["packet_loss_rate"] == 0)].copy()
+    plr = clean[(clean["ber"] == 0) & (clean["burst_length"] == 0)].copy()
+    if "budget_bytes" in noise.columns:
+        for frame in (noise, burst, plr):
+            frame["curve_b"] = (
+                frame["curve"].astype(str)
+                + " / "
+                + pd.to_numeric(frame["budget_bytes"], errors="coerce").fillna(0).astype(int).astype(str)
+                + "B"
+            )
+        _chart(noise, "ber", "accuracy", "curve_b", "Accuracy vs bit error rate")
+        _chart(burst, "burst_length", "accuracy", "curve_b", "Accuracy vs burst length")
+        _chart(plr, "packet_loss_rate", "accuracy", "curve_b", "Accuracy vs packet loss")
+    else:
+        _chart(noise, "ber", "accuracy", "curve", "Accuracy vs bit error rate")
+        _chart(burst, "burst_length", "accuracy", "curve", "Accuracy vs burst length")
+        _chart(plr, "packet_loss_rate", "accuracy", "curve", "Accuracy vs packet loss")
     if "snr_db" in clean.columns:
         radio = clean[pd.to_numeric(clean["snr_db"], errors="coerce").notna()]
         color = "channel_kind" if "channel_kind" in radio.columns else "method"

@@ -53,6 +53,9 @@ python scripts/run_noise_sweep.py
 python scripts/run_burst_sweep.py
 python scripts/run_packet_loss_sweep.py
 
+# Stage 2 remake — k=16 / linear / hashing / 8-bit at 128 B (and 512 B BER control)
+python scripts/run_k16_noise.py
+
 # Stage 3 — sensor dropout / scale / OOD floorplan (not mixed with BER)
 python scripts/run_sensor_shift.py
 
