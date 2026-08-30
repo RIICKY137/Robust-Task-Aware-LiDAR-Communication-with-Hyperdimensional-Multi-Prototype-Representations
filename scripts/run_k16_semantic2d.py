@@ -28,7 +28,7 @@ SPLITS = ["test_id", "test_ood"]
 BERS = [0.0, 0.05, 0.10]
 METHODS = [
     ("quantized", {}),
-    ("binary_hash", {"dimension": DIMENSION}),
+    ("binary_hash", {}),
     ("pure_hdc", {"head": "prototype", "n_centroids": 1, "invalid_mode": "skip"}),
     ("pure_hdc", {"head": "prototype", "n_centroids": 16, "invalid_mode": "skip"}),
     ("pure_hdc", {"head": "linear", "n_centroids": 1, "invalid_mode": "skip"}),
@@ -57,7 +57,10 @@ def main() -> None:
         for name, kw in METHODS:
             tag = _tag(name, kw)
             print(f"fit {tag} seed={seed}")
-            method = build_method(name, BUDGET, seed=seed, dimension=DIMENSION, **kw)
+            fit_kw = dict(kw)
+            if name in {"pure_hdc", "binary_hash"}:
+                fit_kw["dimension"] = DIMENSION
+            method = build_method(name, BUDGET, seed=seed, **fit_kw)
             fit_ranges = train.ranges
             if name != "pure_hdc":
                 fit_ranges = _finite_ranges(fit_ranges, train.max_range)
