@@ -1967,7 +1967,7 @@ def _write_final(
         "| Uncoded radio | k=16 stays flat at 128 B under BPSK-AWGN and block Rayleigh; matched BER tracks AWGN. Linear is hurt by clustered fades. |",
         "| Sensor dropout / scale | k=16 holds random beam drop. 30% sector drop with max-range fill is a fake opening (~0.39 ID). Skip/DROP recover ~0.90 ID / ~0.70–0.75 OOD. |",
         "| Real 2D LiDAR | Semantic2D derived labels ID ~0.50. LidarDataFrames author labels (411 frames): k=16 / linear ~0.97, PCM cliffs. Not a building OOD. |",
-        "| Real LiDAR sensor dropout | LidarDataFrames Stage 3 remake at 128 B: see `reports/stage3_k16_lidardataframes_sensor.md`. Skip vs fill on sector drop. |",
+        "| Real LiDAR sensor dropout | LidarDataFrames 128 B: 30% beam drop k=16 skip ~0.90 vs fill ~0.79; 30% sector skip ~0.84 / DROP ~0.90 / fill ~0.67. PCM and hashing collapse. Not a building OOD. |",
         "| Hybrid encoder | Prototype head ~0.73–0.80; linear head on HDC codes can match/beat hashing |",
         "| Multi-centroid | k>1 lifts prototype accuracy while staying BER-flat; see OOD vs linear in the table |",
         "",

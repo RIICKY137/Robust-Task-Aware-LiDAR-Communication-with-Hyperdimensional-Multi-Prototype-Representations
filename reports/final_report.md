@@ -851,6 +851,83 @@ See `reports/stage0_lidardataframes.md`. 128 B remake on 411 author-labeled scan
 | test_ood | quantized | 0.0500 | 0.5488 |
 | test_ood | quantized | 0.1000 | 0.4228 |
 
+## Stage 3 on LidarDataFrames (author labels)
+
+See `reports/stage3_k16_lidardataframes_sensor.md`. Beam / sector dropout, range scale, and clip at 128 B. Skip / DROP vs max-range fill. `test_ood` is i.i.d., not a building shift.
+
+| split | method_label | sensor | accuracy |
+| --- | --- | --- | --- |
+| test_id | binary_hash | beam_drop:drop_rate=0.1 | 0.5221 |
+| test_id | binary_hash | beam_drop:drop_rate=0.3 | 0.4498 |
+| test_id | binary_hash | clean | 0.8594 |
+| test_id | binary_hash | sector_drop:fraction=0.15 | 0.5301 |
+| test_id | binary_hash | sector_drop:fraction=0.3 | 0.4819 |
+| test_id | hdc_k1/skip | beam_drop:drop_rate=0.1 | 0.8956 |
+| test_id | hdc_k1/skip | beam_drop:drop_rate=0.3 | 0.8434 |
+| test_id | hdc_k1/skip | clean | 0.9679 |
+| test_id | hdc_k1/skip | sector_drop:fraction=0.15 | 0.8474 |
+| test_id | hdc_k1/skip | sector_drop:fraction=0.3 | 0.7871 |
+| test_id | hdc_k16/drop | beam_drop:drop_rate=0.1 | 0.9639 |
+| test_id | hdc_k16/drop | beam_drop:drop_rate=0.3 | 0.9518 |
+| test_id | hdc_k16/drop | clean | 0.9679 |
+| test_id | hdc_k16/drop | sector_drop:fraction=0.15 | 0.9197 |
+| test_id | hdc_k16/drop | sector_drop:fraction=0.3 | 0.8996 |
+| test_id | hdc_k16/fill | beam_drop:drop_rate=0.1 | 0.8835 |
+| test_id | hdc_k16/fill | beam_drop:drop_rate=0.3 | 0.7912 |
+| test_id | hdc_k16/fill | clean | 0.9679 |
+| test_id | hdc_k16/fill | sector_drop:fraction=0.15 | 0.8153 |
+| test_id | hdc_k16/fill | sector_drop:fraction=0.3 | 0.6667 |
+| test_id | hdc_k16/skip | beam_drop:drop_rate=0.1 | 0.9157 |
+| test_id | hdc_k16/skip | beam_drop:drop_rate=0.3 | 0.8956 |
+| test_id | hdc_k16/skip | clean | 0.9679 |
+| test_id | hdc_k16/skip | sector_drop:fraction=0.15 | 0.8635 |
+| test_id | hdc_k16/skip | sector_drop:fraction=0.3 | 0.8434 |
+| test_id | hdc_linear/skip | beam_drop:drop_rate=0.1 | 0.8032 |
+| test_id | hdc_linear/skip | beam_drop:drop_rate=0.3 | 0.7470 |
+| test_id | hdc_linear/skip | clean | 0.9759 |
+| test_id | hdc_linear/skip | sector_drop:fraction=0.15 | 0.7229 |
+| test_id | hdc_linear/skip | sector_drop:fraction=0.3 | 0.6627 |
+| test_id | quantized | beam_drop:drop_rate=0.1 | 0.6466 |
+| test_id | quantized | beam_drop:drop_rate=0.3 | 0.3896 |
+| test_id | quantized | clean | 0.9036 |
+| test_id | quantized | sector_drop:fraction=0.15 | 0.5823 |
+| test_id | quantized | sector_drop:fraction=0.3 | 0.3815 |
+| test_ood | binary_hash | beam_drop:drop_rate=0.1 | 0.5122 |
+| test_ood | binary_hash | beam_drop:drop_rate=0.3 | 0.4756 |
+| test_ood | binary_hash | clean | 0.8008 |
+| test_ood | binary_hash | sector_drop:fraction=0.15 | 0.5650 |
+| test_ood | binary_hash | sector_drop:fraction=0.3 | 0.5081 |
+| test_ood | hdc_k1/skip | beam_drop:drop_rate=0.1 | 0.8374 |
+| test_ood | hdc_k1/skip | beam_drop:drop_rate=0.3 | 0.8130 |
+| test_ood | hdc_k1/skip | clean | 0.8984 |
+| test_ood | hdc_k1/skip | sector_drop:fraction=0.15 | 0.8171 |
+| test_ood | hdc_k1/skip | sector_drop:fraction=0.3 | 0.7642 |
+| test_ood | hdc_k16/drop | beam_drop:drop_rate=0.1 | 0.9350 |
+| test_ood | hdc_k16/drop | beam_drop:drop_rate=0.3 | 0.9187 |
+| test_ood | hdc_k16/drop | clean | 0.9472 |
+| test_ood | hdc_k16/drop | sector_drop:fraction=0.15 | 0.8984 |
+| test_ood | hdc_k16/drop | sector_drop:fraction=0.3 | 0.8902 |
+| test_ood | hdc_k16/fill | beam_drop:drop_rate=0.1 | 0.8577 |
+| test_ood | hdc_k16/fill | beam_drop:drop_rate=0.3 | 0.8171 |
+| test_ood | hdc_k16/fill | clean | 0.9472 |
+| test_ood | hdc_k16/fill | sector_drop:fraction=0.15 | 0.8008 |
+| test_ood | hdc_k16/fill | sector_drop:fraction=0.3 | 0.6463 |
+| test_ood | hdc_k16/skip | beam_drop:drop_rate=0.1 | 0.8862 |
+| test_ood | hdc_k16/skip | beam_drop:drop_rate=0.3 | 0.8780 |
+| test_ood | hdc_k16/skip | clean | 0.9472 |
+| test_ood | hdc_k16/skip | sector_drop:fraction=0.15 | 0.8455 |
+| test_ood | hdc_k16/skip | sector_drop:fraction=0.3 | 0.8577 |
+| test_ood | hdc_linear/skip | beam_drop:drop_rate=0.1 | 0.7764 |
+| test_ood | hdc_linear/skip | beam_drop:drop_rate=0.3 | 0.6992 |
+| test_ood | hdc_linear/skip | clean | 0.9756 |
+| test_ood | hdc_linear/skip | sector_drop:fraction=0.15 | 0.7439 |
+| test_ood | hdc_linear/skip | sector_drop:fraction=0.3 | 0.6667 |
+| test_ood | quantized | beam_drop:drop_rate=0.1 | 0.6626 |
+| test_ood | quantized | beam_drop:drop_rate=0.3 | 0.3821 |
+| test_ood | quantized | clean | 0.8537 |
+| test_ood | quantized | sector_drop:fraction=0.15 | 0.5691 |
+| test_ood | quantized | sector_drop:fraction=0.3 | 0.4106 |
+
 ## Realistic radio (Stage 8)
 
 See `reports/stage8_radio.md`. Uncoded BPSK/QPSK hard decisions vs matched i.i.d. BER at the same Eb/N0.
@@ -963,7 +1040,8 @@ See `reports/stage8_radio.md`. Uncoded BPSK/QPSK hard decisions vs matched i.i.d
 | Burst / packet loss | k=16 holds 128-bit bursts and 20% packet loss at 128 B; a 512-bit burst (half the code) is a failure region |
 | Uncoded radio | k=16 stays flat at 128 B under BPSK-AWGN and block Rayleigh; matched BER tracks AWGN. Linear is hurt by clustered fades. |
 | Sensor dropout / scale | k=16 holds random beam drop. 30% sector drop with max-range fill is a fake opening (~0.39 ID). Skip/DROP recover ~0.90 ID / ~0.70–0.75 OOD. |
-| Real 2D LiDAR | Semantic2D (derived labels) ID ~0.50. LidarDataFrames (author labels, 411 frames): `reports/stage0_lidardataframes.md`. |
+| Real 2D LiDAR | Semantic2D derived labels ID ~0.50. LidarDataFrames author labels (411 frames): k=16 / linear ~0.97, PCM cliffs. Not a building OOD. |
+| Real LiDAR sensor dropout | LidarDataFrames Stage 3 remake at 128 B: see `reports/stage3_k16_lidardataframes_sensor.md`. Skip vs fill on sector drop. |
 | Hybrid encoder | Prototype head ~0.73–0.80; linear head on HDC codes can match/beat hashing |
 | Multi-centroid | k>1 lifts prototype accuracy while staying BER-flat; see OOD vs linear in the table |
 
