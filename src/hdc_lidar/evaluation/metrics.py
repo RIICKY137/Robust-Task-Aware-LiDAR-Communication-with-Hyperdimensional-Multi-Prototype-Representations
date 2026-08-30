@@ -34,7 +34,11 @@ def task_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> dict:
         "per_class": per_class,
         "confusion_matrix": cm,
         "report": classification_report(
-            y_true, y_pred, target_names=list(LABELS), zero_division=0
+            y_true,
+            y_pred,
+            labels=list(range(len(LABELS))),
+            target_names=list(LABELS),
+            zero_division=0,
         ),
     }
 
