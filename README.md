@@ -62,8 +62,9 @@ python scripts/run_sensor_shift.py
 # Stage 3 remake — k=16 under beam / sector dropout
 python scripts/run_k16_sensor.py
 
-# Sector-drop encoder fix — skip / DROP vs max-range fill
+# Sector-drop encoder fix — skip / DROP vs max-range fill (512 B, k=16)
 python scripts/run_k16_sector_encode.py
+# Missing beams as NaN, not max-range. Do not overwrite k16_sensor.jsonl.
 
 # Stage 4 — 10 / 50 / 100-shot OOD HDC vs 8-bit logistic vs hybrid
 python scripts/run_shift_adaptation.py

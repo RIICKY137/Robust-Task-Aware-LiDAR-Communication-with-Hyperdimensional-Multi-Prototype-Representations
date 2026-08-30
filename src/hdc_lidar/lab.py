@@ -216,8 +216,8 @@ def _live(batch, splits) -> None:
         invalid_mode = st.selectbox(
             "Invalid beams",
             ["fill", "skip", "drop"],
-            index=0,
-            help="fill treats holes as max-range. skip omits them. drop binds a DROP item.",
+            index=1,
+            help="fill treats holes as max-range (fake opening). skip omits them. drop binds a DROP item.",
         )
     sensor_hole = st.selectbox(
         "Sensor hole on this scan",

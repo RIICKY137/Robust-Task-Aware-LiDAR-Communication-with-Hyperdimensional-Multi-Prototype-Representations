@@ -714,6 +714,53 @@ See `reports/stage8_k16_radio.md`. BPSK-AWGN, block Rayleigh, and matched BER at
 | test_ood | quantized | 512 | matched_ber | 4.0000 | 0.5852 |
 | test_ood | quantized | 512 | matched_ber | 8.0000 | 0.7452 |
 
+## Sector-drop encoder fix
+
+See `reports/stage3_k16_sector_encode.md`. Skip / DROP-bind invalid beams vs max-range fill.
+
+| split | method_label | sensor | accuracy |
+| --- | --- | --- | --- |
+| test_id | binary_hash | beam_drop:drop_rate=0.1 | 0.5035 |
+| test_id | binary_hash | beam_drop:drop_rate=0.3 | 0.2262 |
+| test_id | binary_hash | clean | 0.9216 |
+| test_id | binary_hash | sector_drop:fraction=0.15 | 0.3933 |
+| test_id | binary_hash | sector_drop:fraction=0.3 | 0.2737 |
+| test_id | hdc_k16/drop | beam_drop:drop_rate=0.1 | 0.9555 |
+| test_id | hdc_k16/drop | beam_drop:drop_rate=0.3 | 0.9489 |
+| test_id | hdc_k16/drop | clean | 0.9597 |
+| test_id | hdc_k16/drop | sector_drop:fraction=0.15 | 0.9473 |
+| test_id | hdc_k16/drop | sector_drop:fraction=0.3 | 0.8989 |
+| test_id | hdc_k16/fill | beam_drop:drop_rate=0.1 | 0.9437 |
+| test_id | hdc_k16/fill | beam_drop:drop_rate=0.3 | 0.8028 |
+| test_id | hdc_k16/fill | clean | 0.9597 |
+| test_id | hdc_k16/fill | sector_drop:fraction=0.15 | 0.7926 |
+| test_id | hdc_k16/fill | sector_drop:fraction=0.3 | 0.3869 |
+| test_id | hdc_k16/skip | beam_drop:drop_rate=0.1 | 0.9547 |
+| test_id | hdc_k16/skip | beam_drop:drop_rate=0.3 | 0.9500 |
+| test_id | hdc_k16/skip | clean | 0.9597 |
+| test_id | hdc_k16/skip | sector_drop:fraction=0.15 | 0.9426 |
+| test_id | hdc_k16/skip | sector_drop:fraction=0.3 | 0.9017 |
+| test_ood | binary_hash | beam_drop:drop_rate=0.1 | 0.4357 |
+| test_ood | binary_hash | beam_drop:drop_rate=0.3 | 0.2534 |
+| test_ood | binary_hash | clean | 0.6228 |
+| test_ood | binary_hash | sector_drop:fraction=0.15 | 0.3739 |
+| test_ood | binary_hash | sector_drop:fraction=0.3 | 0.3095 |
+| test_ood | hdc_k16/drop | beam_drop:drop_rate=0.1 | 0.8183 |
+| test_ood | hdc_k16/drop | beam_drop:drop_rate=0.3 | 0.8277 |
+| test_ood | hdc_k16/drop | clean | 0.8502 |
+| test_ood | hdc_k16/drop | sector_drop:fraction=0.15 | 0.7992 |
+| test_ood | hdc_k16/drop | sector_drop:fraction=0.3 | 0.7525 |
+| test_ood | hdc_k16/fill | beam_drop:drop_rate=0.1 | 0.6976 |
+| test_ood | hdc_k16/fill | beam_drop:drop_rate=0.3 | 0.5901 |
+| test_ood | hdc_k16/fill | clean | 0.8502 |
+| test_ood | hdc_k16/fill | sector_drop:fraction=0.15 | 0.5724 |
+| test_ood | hdc_k16/fill | sector_drop:fraction=0.3 | 0.4373 |
+| test_ood | hdc_k16/skip | beam_drop:drop_rate=0.1 | 0.7990 |
+| test_ood | hdc_k16/skip | beam_drop:drop_rate=0.3 | 0.7689 |
+| test_ood | hdc_k16/skip | clean | 0.8502 |
+| test_ood | hdc_k16/skip | sector_drop:fraction=0.15 | 0.7667 |
+| test_ood | hdc_k16/skip | sector_drop:fraction=0.3 | 0.7019 |
+
 ## Realistic radio (Stage 8)
 
 See `reports/stage8_radio.md`. Uncoded BPSK/QPSK hard decisions vs matched i.i.d. BER at the same Eb/N0.
@@ -825,7 +872,7 @@ See `reports/stage8_radio.md`. Uncoded BPSK/QPSK hard decisions vs matched i.i.d
 | Random BER | k=16 stays flat at 128 B (~0.95). Linear head is not holographic at that budget. PCM cliffs. |
 | Burst / packet loss | k=16 holds 128-bit bursts and 20% packet loss at 128 B; a 512-bit burst (half the code) is a failure region |
 | Uncoded radio | k=16 stays flat at 128 B under BPSK-AWGN and block Rayleigh; matched BER tracks AWGN. Linear is hurt by clustered fades. |
-| Sensor dropout / scale | k=16 holds under random beam drop; 30% contiguous sector drop is a failure region. First-round Stage 3 used k=1. |
+| Sensor dropout / scale | k=16 holds random beam drop. 30% sector drop with max-range fill is a fake opening (~0.39 ID). Skip/DROP recover ~0.90 ID / ~0.70–0.75 OOD. |
 | Few-shot OOD | HDC updates are milliseconds vs seconds for a linear refit |
 | Hybrid encoder | Prototype head ~0.73–0.80; linear head on HDC codes can match/beat hashing |
 | Multi-centroid | k>1 lifts prototype accuracy while staying BER-flat; see OOD vs linear in the table |

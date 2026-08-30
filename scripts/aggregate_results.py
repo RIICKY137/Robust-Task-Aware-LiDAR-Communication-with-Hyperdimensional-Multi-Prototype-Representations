@@ -1164,6 +1164,20 @@ def _write_k16_sector_encode(df: pd.DataFrame, path: Path) -> None:
                 "(instead of open space) recovers sector-drop accuracy without hurting "
                 "random beam dropout or the clean channel.",
                 "",
+                "- **Clean is unchanged.** Hashing is 0.922 ID / 0.623 OOD. k=16 fill, skip, and "
+                "DROP are identical at 0.960 ID / 0.850 OOD — there are no non-finite beams, so "
+                "the three encoders write the same HV.",
+                "- **30% sector drop was the encoder, not the classifier.** ID: fill 0.387 "
+                "(same as the first-round remake), skip 0.902, DROP 0.899, hashing 0.274. "
+                "OOD: fill 0.437, skip 0.702, DROP 0.753.",
+                "- **Random beam drop does not regress; skip/DROP improve it.** ID 30% beam drop: "
+                "fill 0.803, skip 0.950, DROP 0.949. Fill still writes scattered holes as "
+                "max-range, so those random gaps were a milder version of the same fake opening.",
+                "- **DROP vs skip.** On this grid they are close on ID. DROP is a bit ahead on "
+                "OOD holes (a bound DROP item stays in the bundle; skip shortens it). Neither "
+                "is a universal win over the other. Hashing has no DROP item and stays the "
+                "max-range-fill control.",
+                "",
             ]
         ),
         encoding="utf-8",
@@ -1422,7 +1436,7 @@ def _write_final(
         "| Random BER | k=16 stays flat at 128 B (~0.95). Linear head is not holographic at that budget. PCM cliffs. |",
         "| Burst / packet loss | k=16 holds 128-bit bursts and 20% packet loss at 128 B; a 512-bit burst (half the code) is a failure region |",
         "| Uncoded radio | k=16 stays flat at 128 B under BPSK-AWGN and block Rayleigh; matched BER tracks AWGN. Linear is hurt by clustered fades. |",
-        "| Sensor dropout / scale | k=16 holds random beam drop. 30% sector drop was a fake opening; skip/DROP remake in `reports/stage3_k16_sector_encode.md`. |",
+        "| Sensor dropout / scale | k=16 holds random beam drop. 30% sector drop with max-range fill is a fake opening (~0.39 ID). Skip/DROP recover ~0.90 ID / ~0.70–0.75 OOD. |",
         "| Few-shot OOD | HDC updates are milliseconds vs seconds for a linear refit |",
         "| Hybrid encoder | Prototype head ~0.73–0.80; linear head on HDC codes can match/beat hashing |",
         "| Multi-centroid | k>1 lifts prototype accuracy while staying BER-flat; see OOD vs linear in the table |",
