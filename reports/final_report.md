@@ -761,6 +761,22 @@ See `reports/stage3_k16_sector_encode.md`. Skip / DROP-bind invalid beams vs max
 | test_ood | hdc_k16/skip | sector_drop:fraction=0.15 | 0.7667 |
 | test_ood | hdc_k16/skip | sector_drop:fraction=0.3 | 0.7019 |
 
+## k=16 few-shot remake at 128 B
+
+See `reports/stage4_k16_adaptation_128b.md`. 10/50/100-shot OOD at the 128 B operating point.
+
+| method | shots_per_class | new_acc | old_acc | forgetting | adapt_ms |
+| --- | --- | --- | --- | --- | --- |
+| hdc_k1 | 10 | 0.7070 | 0.7283 | -0.0014 | 3.8749 |
+| hdc_k1 | 50 | 0.7216 | 0.7227 | 0.0041 | 23.8353 |
+| hdc_k1 | 100 | 0.7511 | 0.7213 | 0.0055 | 40.7021 |
+| hdc_k16 | 10 | 0.8533 | 0.9531 | 0.0003 | 8.9237 |
+| hdc_k16 | 50 | 0.8897 | 0.9508 | 0.0025 | 41.8532 |
+| hdc_k16 | 100 | 0.9100 | 0.9450 | 0.0083 | 80.0889 |
+| hdc_linear | 10 | 0.8037 | 0.9448 | 0.0006 | 3915.3021 |
+| hdc_linear | 50 | 0.8519 | 0.9312 | 0.0141 | 5045.6929 |
+| hdc_linear | 100 | 0.8976 | 0.9263 | 0.0191 | 5016.7579 |
+
 ## Realistic radio (Stage 8)
 
 See `reports/stage8_radio.md`. Uncoded BPSK/QPSK hard decisions vs matched i.i.d. BER at the same Eb/N0.
@@ -873,7 +889,7 @@ See `reports/stage8_radio.md`. Uncoded BPSK/QPSK hard decisions vs matched i.i.d
 | Burst / packet loss | k=16 holds 128-bit bursts and 20% packet loss at 128 B; a 512-bit burst (half the code) is a failure region |
 | Uncoded radio | k=16 stays flat at 128 B under BPSK-AWGN and block Rayleigh; matched BER tracks AWGN. Linear is hurt by clustered fades. |
 | Sensor dropout / scale | k=16 holds random beam drop. 30% sector drop with max-range fill is a fake opening (~0.39 ID). Skip/DROP recover ~0.90 ID / ~0.70–0.75 OOD. |
-| Few-shot OOD | HDC updates are milliseconds vs seconds for a linear refit |
+| Few-shot OOD | At 128 B, k=16 centroid add is tens of ms (0.84 → 0.91 at 100 shots). Linear refit is ~5 s and does not overtake. |
 | Hybrid encoder | Prototype head ~0.73–0.80; linear head on HDC codes can match/beat hashing |
 | Multi-centroid | k>1 lifts prototype accuracy while staying BER-flat; see OOD vs linear in the table |
 

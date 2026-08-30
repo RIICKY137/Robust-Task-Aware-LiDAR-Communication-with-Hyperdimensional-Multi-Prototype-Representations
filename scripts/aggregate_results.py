@@ -1259,6 +1259,17 @@ def _write_k16_adapt_128(adapt: pd.DataFrame, path: Path) -> None:
                 "OOD gap relative to refitting a linear head, and does shrinking D from 4096 to "
                 "1024 change the 512 B picture.",
                 "",
+                "- **k=16 still starts ahead on OOD.** Before shots: k=16 0.841, linear 0.794, "
+                "k=1 0.699 — the same 128 B bandwidth remake.",
+                "- **Centroid add remains cheap.** k=16: 9 / 42 / 80 ms at 10 / 50 / 100 shots. "
+                "Linear refit on train HVs plus shots: ~4–5 s.",
+                "- **Gains match 512 B; linear does not overtake.** k=16 +0.013 / +0.049 / +0.070 "
+                "(→ 0.853 / 0.890 / 0.910). Linear +0.010 / +0.058 / +0.104 (→ 0.804 / 0.852 / 0.898). "
+                "At 512 B the linear head passed k=16 at 100 shots; at 128 B it does not.",
+                "- **k=1 is still not the operating point.** 0.699 → 0.751 at 100 shots.",
+                "- **Forgetting stays small for k=16** (0.008 at 100 shots). Linear drops ID more "
+                "(0.945 → 0.926).",
+                "",
             ]
         ),
         encoding="utf-8",
@@ -1535,7 +1546,7 @@ def _write_final(
         "| Burst / packet loss | k=16 holds 128-bit bursts and 20% packet loss at 128 B; a 512-bit burst (half the code) is a failure region |",
         "| Uncoded radio | k=16 stays flat at 128 B under BPSK-AWGN and block Rayleigh; matched BER tracks AWGN. Linear is hurt by clustered fades. |",
         "| Sensor dropout / scale | k=16 holds random beam drop. 30% sector drop with max-range fill is a fake opening (~0.39 ID). Skip/DROP recover ~0.90 ID / ~0.70–0.75 OOD. |",
-        "| Few-shot OOD | At 512 B, centroid add is ms vs a linear refit. 128 B remake: `reports/stage4_k16_adaptation_128b.md`. |",
+        "| Few-shot OOD | At 128 B, k=16 centroid add is tens of ms (0.84 → 0.91 at 100 shots). Linear refit is ~5 s and does not overtake. |",
         "| Hybrid encoder | Prototype head ~0.73–0.80; linear head on HDC codes can match/beat hashing |",
         "| Multi-centroid | k>1 lifts prototype accuracy while staying BER-flat; see OOD vs linear in the table |",
         "",
